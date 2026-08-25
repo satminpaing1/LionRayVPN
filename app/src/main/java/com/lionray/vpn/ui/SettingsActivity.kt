@@ -132,26 +132,27 @@ class SettingsActivity : AppCompatActivity() {
                 btn.isEnabled = false
                 panel.visibility = android.view.View.VISIBLE
                 progress(-1)
+                val storedUrl = SettingsStore.apkUpdateDownloadUrl(this)
                 Thread {
                     val result = runCatching {
-                        val info = com.lionray.vpn.util.ApkUpdater.fetchLatestApk()
-                            ?: throw Exception("could not find APK on GitHub")
-                        val file = com.lionray.vpn.util.ApkUpdater.downloadAndInstall(
-                            this, info.downloadUrl
+                        val url = storedUrl.ifEmpty {
+                            com.lionray.vpn.util.ApkUpdater.fetchLatestApk()?.downloadUrl
+                                ?: throw Exception("could not find APK on GitHub")
+                        }
+                        com.lionray.vpn.util.ApkUpdater.downloadAndInstall(
+                            this, url
                         ) { p -> runOnUiThread { progress(p) } }
-                        info.versionName to file
                     }
                     runOnUiThread {
                         if (isDestroyed || isFinishing) return@runOnUiThread
                         btn.isEnabled = true
                         panel.visibility = android.view.View.GONE
                         result.fold(
-                            onSuccess = { (ver, file) ->
+                            onSuccess = { file ->
+                                com.lionray.vpn.util.ApkUpdater.installApk(this, file)
                                 SettingsStore.clearApkUpdateState(this@SettingsActivity)
                                 dot.visibility = android.view.View.GONE
                                 btn.text = getString(R.string.xray_core_version, installedVer) + "  ✓"
-                                toast(getString(R.string.apk_downloaded))
-                                com.lionray.vpn.util.ApkUpdater.installApk(this, file)
                             },
                             onFailure = { toast(getString(R.string.apk_update_fail, it.message ?: "")) }
                         )

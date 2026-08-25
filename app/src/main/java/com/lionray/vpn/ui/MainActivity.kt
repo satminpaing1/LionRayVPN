@@ -181,13 +181,13 @@ class MainActivity : AppCompatActivity() {
         val spinner = progressView.findViewById<android.view.View>(R.id.spinnerDialog)
 
         val storedUrl = SettingsStore.apkUpdateDownloadUrl(this)
+        var downloadedFile: java.io.File? = null
 
         val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.apk_update_title, latest))
             .setMessage(getString(R.string.apk_update_msg))
             .setView(progressView)
             .setNegativeButton(R.string.cancel) { d, _ ->
-                SettingsStore.setApkUpdateDismissed(this)
                 updateDialogShowing = false
                 d.dismiss()
             }
@@ -212,7 +212,7 @@ class MainActivity : AppCompatActivity() {
                         com.lionray.vpn.util.ApkUpdater.fetchLatestApk()?.downloadUrl
                             ?: throw Exception("could not find APK on GitHub")
                     }
-                    val file = com.lionray.vpn.util.ApkUpdater.downloadAndInstall(
+                    com.lionray.vpn.util.ApkUpdater.downloadAndInstall(
                         this, url
                     ) { p ->
                         runOnUiThread {
@@ -226,21 +226,29 @@ class MainActivity : AppCompatActivity() {
                             }
                         }
                     }
-                    file
                 }
                 runOnUiThread {
                     if (isDestroyed || isFinishing) return@runOnUiThread
                     result.fold(
-                        onSuccess = {
+                        onSuccess = { file ->
+                            downloadedFile = file
                             tvProgress.text = getString(R.string.apk_downloaded)
                             bar.setProgressCompat(100, true)
-                            SettingsStore.clearApkUpdateState(this@MainActivity)
-                            dialog.dismiss()
-                            com.lionray.vpn.util.ApkUpdater.installApk(this, it)
+                            spinner.visibility = View.GONE
+                            // Show "Install" button
+                            dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).isEnabled = true
+                            dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).text = getString(R.string.install)
+                            dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                                com.lionray.vpn.util.ApkUpdater.installApk(this, file)
+                                SettingsStore.clearApkUpdateState(this@MainActivity)
+                                dialog.dismiss()
+                            }
                         },
                         onFailure = {
                             tvProgress.text = getString(R.string.apk_update_fail, it.message ?: "")
+                            spinner.visibility = View.GONE
                             dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).isEnabled = true
+                            dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).text = getString(R.string.retry)
                             dialog.getButton(android.app.AlertDialog.BUTTON_NEGATIVE).isEnabled = true
                             dialog.getButton(android.app.AlertDialog.BUTTON_NEGATIVE).setText(R.string.ok)
                         }

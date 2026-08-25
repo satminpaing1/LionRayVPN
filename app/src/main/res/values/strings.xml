@@ -17,6 +17,8 @@
     <string name="btn_copy_error">Copy error</string>
     <string name="err_unknown">Unknown error</string>
     <string name="ok">OK</string>
+    <string name="install">Install</string>
+    <string name="retry">Retry</string>
 
     <!-- speed -->
     <string name="speed_down_label">Download</string>

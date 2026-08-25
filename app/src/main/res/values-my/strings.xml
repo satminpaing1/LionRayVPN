@@ -16,6 +16,8 @@
     <string name="btn_copy_error">Error စာသား ကူးယူ</string>
     <string name="err_unknown">အမည်မသိ အမှား</string>
     <string name="ok">အိုကေ</string>
+    <string name="install">Install</string>
+    <string name="retry">ထပ်ကြိုးစား</string>
 
     <!-- speed -->
     <string name="speed_down_label">Download</string>
