@@ -7,6 +7,10 @@ on:
         description: 'Xray core version (e.g. 27.1.5)'
         required: true
         type: string
+      app_version:
+        description: 'APP version (e.g. 1.1, 1.2)'
+        required: true
+        type: string
 
 jobs:
   build:
@@ -48,21 +52,16 @@ jobs:
           cp xray-extracted/xray app/src/main/jniLibs/arm64-v8a/libxray.so
           echo "Xray ${TAG} ready ($(stat -c%s app/src/main/jniLibs/arm64-v8a/libxray.so) bytes)"
 
-      - name: Bump versionCode
+      - name: Set version
         run: |
-          CURRENT=$(grep -oP 'versionCode = \K\d+' app/build.gradle.kts)
-          NEXT=$((CURRENT + 1))
-          sed -i "s/versionCode = $CURRENT/versionCode = $NEXT/" app/build.gradle.kts
-          sed -i "s/versionName = \".*\"/versionName = \"1.${{ github.event.inputs.xray_version }}\"/" app/build.gradle.kts
-          echo "versionCode: $CURRENT -> $NEXT"
-
-      - name: Commit version bump
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add app/build.gradle.kts
-          git commit -m "v${{ github.event.inputs.xray_version }}" || true
-          git push
+          APP_VER="${{ github.event.inputs.app_version }}"
+          # Compute versionCode: major*10000 + minor*100
+          MAJOR=$(echo "$APP_VER" | cut -d. -f1)
+          MINOR=$(echo "$APP_VER" | cut -d. -f2)
+          CODE=$((MAJOR * 10000 + MINOR * 100))
+          sed -i "s/versionCode = .*/versionCode = $CODE/" app/build.gradle.kts
+          sed -i "s/versionName = \".*\"/versionName = \"$APP_VER\"/" app/build.gradle.kts
+          echo "APP v${APP_VER} (versionCode=$CODE)"
 
       - name: Build APK
         run: |
@@ -71,14 +70,13 @@ jobs:
 
       - name: Sign APK
         run: |
-          # Decode keystore from secret
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
           KEYSTORE_PASS="${{ secrets.KEYSTORE_PASS }}"
 
           BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
           UNSIGNED="app/build/outputs/apk/release/app-release-unsigned.apk"
           ALIGNED="app-release-aligned.apk"
-          SIGNED="LionRayVPN-v${{ github.event.inputs.xray_version }}.apk"
+          SIGNED="LionRayVPN-v${{ github.event.inputs.app_version }}-core${{ github.event.inputs.xray_version }}.apk"
 
           "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
           "$BUILD_TOOLS/apksigner" sign \
@@ -89,14 +87,23 @@ jobs:
           "$BUILD_TOOLS/apksigner" verify "$SIGNED"
           echo "SIGNED: $SIGNED"
 
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add app/build.gradle.kts app/src/main/jniLibs/arm64-v8a/libxray.so
+          git commit -m "APP v${{ github.event.inputs.app_version }} | Xray v${{ github.event.inputs.xray_version }}" || true
+          git push
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ github.event.inputs.xray_version }}
-          name: "LionRay VPN v${{ github.event.inputs.xray_version }}"
+          tag_name: app-v${{ github.event.inputs.app_version }}-core${{ github.event.inputs.xray_version }}
+          name: "LionRay VPN v${{ github.event.inputs.app_version }} (Xray ${{ github.event.inputs.xray_version }})"
           body: |
-            Xray Core v${{ github.event.inputs.xray_version }}
+            APP Version: ${{ github.event.inputs.app_version }}
+            Xray Core: v${{ github.event.inputs.xray_version }}
 
             Install: Download the APK and open it.
-          files: LionRayVPN-v${{ github.event.inputs.xray_version }}.apk
+          files: LionRayVPN-v${{ github.event.inputs.app_version }}-core${{ github.event.inputs.xray_version }}.apk
           make_latest: true

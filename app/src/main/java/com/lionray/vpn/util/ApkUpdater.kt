@@ -45,7 +45,7 @@ object ApkUpdater {
 
             val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
 
-            val tagName = json.optString("tag_name", "").trim().removePrefix("v")
+            val tagName = json.optString("tag_name", "").trim()
             val body = json.optString("body", "")
             val assets = json.optJSONArray("assets") ?: return null
 
@@ -59,11 +59,14 @@ object ApkUpdater {
             }
             if (apkUrl == null || tagName.isEmpty()) return null
 
-            val versionCode = parseVersionCode(tagName)
+            // Extract app version from tag: "app-v1.1-core27.1.5" → "1.1"
+            // Fallback: plain tag like "v26.3.27" → "26.3.27"
+            val appVersion = extractAppVersion(tagName)
+            val versionCode = computeVersionCode(appVersion)
             if (versionCode <= 0) return null
 
             ApkInfo(
-                versionName = tagName,
+                versionName = appVersion,
                 versionCode = versionCode,
                 downloadUrl = apkUrl,
                 releaseNotes = body
@@ -71,6 +74,22 @@ object ApkUpdater {
         } catch (_: Throwable) {
             null
         }
+    }
+
+    /** Extract app version from tag. "app-v1.1-core27.1.5" → "1.1", "v26.3.27" → "26.3.27" */
+    private fun extractAppVersion(tag: String): String {
+        // New format: app-v1.1-core27.1.5
+        val m = Regex("""app-v(\d+\.\d+)""").find(tag)
+        if (m != null) return m.groupValues[1]
+        // Legacy format: v26.3.27
+        return tag.removePrefix("v").takeIf { it.isNotEmpty() } ?: tag
+    }
+
+    /** Compute versionCode from app version: "1.1" → 1*10000 + 1*100 = 10100 */
+    private fun computeVersionCode(appVersion: String): Int {
+        val m = Regex("""(\d+)\.(\d+)""").find(appVersion) ?: return 0
+        val (a, b) = m.destructured
+        return a.toInt() * 10000 + b.toInt() * 100
     }
 
     /** Returns true when [remote] is newer than the installed APK. */
@@ -129,12 +148,5 @@ object ApkUpdater {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         ctx.startActivity(intent)
-    }
-
-    /** Simple version code: major*10000 + minor*100 + patch */
-    private fun parseVersionCode(tag: String): Int {
-        val m = Regex("""(\d+)\.(\d+)\.(\d+)""").find(tag) ?: return 0
-        val (a, b, c) = m.destructured
-        return a.toInt() * 10000 + b.toInt() * 100 + c.toInt()
     }
 }
