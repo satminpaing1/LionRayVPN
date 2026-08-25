@@ -1,0 +1,98 @@
+name: Build & Release APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      xray_version:
+        description: 'Xray core version (e.g. 27.1.5)'
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept SDK licenses
+        run: yes | sdkmanager --licenses || true
+
+      - name: Install build tools
+        run: sdkmanager "build-tools;35.0.0" "platforms;android-34"
+
+      - name: Download Xray core
+        run: |
+          TAG="${{ github.event.inputs.xray_version }}"
+          URL="https://github.com/XTLS/Xray-core/releases/download/v${TAG}/Xray-android-arm64-v8a.zip"
+          echo "Downloading Xray v${TAG}..."
+          curl -L -o xray.zip "$URL"
+          unzip xray.zip -d xray-extracted
+          chmod +x xray-extracted/xray
+          cp xray-extracted/xray app/src/main/jniLibs/arm64-v8a/libxray.so
+          echo "Xray v${TAG} ready ($(stat -c%s app/src/main/jniLibs/arm64-v8a/libxray.so) bytes)"
+
+      - name: Bump versionCode
+        run: |
+          CURRENT=$(grep -oP 'versionCode = \K\d+' app/build.gradle.kts)
+          NEXT=$((CURRENT + 1))
+          sed -i "s/versionCode = $CURRENT/versionCode = $NEXT/" app/build.gradle.kts
+          sed -i "s/versionName = \".*\"/versionName = \"1.${{ github.event.inputs.xray_version }}\"/" app/build.gradle.kts
+          echo "versionCode: $CURRENT -> $NEXT"
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add app/build.gradle.kts
+          git commit -m "v${{ github.event.inputs.xray_version }}" || true
+          git push
+
+      - name: Build APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
+      - name: Sign APK
+        run: |
+          # Decode keystore from secret
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+          KEYSTORE_PASS="${{ secrets.KEYSTORE_PASS }}"
+
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          UNSIGNED="app/build/outputs/apk/release/app-release-unsigned.apk"
+          ALIGNED="app-release-aligned.apk"
+          SIGNED="LionRayVPN-v${{ github.event.inputs.xray_version }}.apk"
+
+          "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks release.keystore \
+            --ks-key-alias lionray \
+            --ks-pass "pass:$KEYSTORE_PASS" \
+            --out "$SIGNED" "$ALIGNED"
+          "$BUILD_TOOLS/apksigner" verify "$SIGNED"
+          echo "SIGNED: $SIGNED"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.event.inputs.xray_version }}
+          name: "LionRay VPN v${{ github.event.inputs.xray_version }}"
+          body: |
+            Xray Core v${{ github.event.inputs.xray_version }}
+
+            Install: Download the APK and open it.
+          files: LionRayVPN-v${{ github.event.inputs.xray_version }}.apk
+          make_latest: true

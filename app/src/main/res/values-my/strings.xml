@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LionRay VPN</string>
+    <string name="channel_vpn">VPN အခြေအနေ</string>
+    <string name="channel_vpn_desc">LionRay VPN ချိတ်ဆက်မှုအခြေအနေ ပြသည်</string>
+
+    <string name="status_ready">အသင့်</string>
+    <string name="status_connecting">ချိတ်ဆက်နေသည်…</string>
+    <string name="status_connected">ချိတ်ဆက်ပြီး</string>
+    <string name="status_error">ချိတ်ဆက်မှု မအောင်မြင်ပါ</string>
+    <string name="btn_connect">ချိတ်ဆက်</string>
+    <string name="btn_disconnect">ပိတ်ရန်</string>
+    <string name="hint_no_server">Server ရွေးမထားပါ</string>
+    <string name="selected_server">ရွေးထားသည်: %1$s</string>
+    <string name="err_dialog_title">ချိတ်ဆက်မှု မအောင်မြင်ပါ</string>
+    <string name="btn_copy_error">Error စာသား ကူးယူ</string>
+    <string name="err_unknown">အမည်မသိ အမှား</string>
+    <string name="ok">အိုကေ</string>
+
+    <!-- speed -->
+    <string name="speed_down_label">Download</string>
+    <string name="speed_up_label">Upload</string>
+
+    <!-- exit IP -->
+    <string name="exit_ip_checking">တကယ့် exit IP ကို စစ်နေသည်…</string>
+    <string name="exit_ip_fail">Exit IP ကို ရှာမတွေ့ပါ (ထပ်စစ်ရန် နှိပ်ပါ)</string>
+
+    <!-- bottom navigation -->
+    <string name="nav_home">ပင်မ</string>
+    <string name="nav_configs">Config များ</string>
+    <string name="nav_settings">ဆက်တင်များ</string>
+
+    <!-- language -->
+    <string name="settings_language_section">ဘာသာစကား / Language</string>
+    <string name="lang_choose_title">ဘာသာစကား ရွေးချယ်ပါ</string>
+    <string name="lang_english">English</string>
+    <string name="lang_myanmar">မြန်မာ</string>
+    <string name="auto_ping_periodic">တစ်မိနစ်တစ်ခါ auto ping</string>
+
+    <!-- about -->
+    <string name="about_version">ဗားရှင်း %1$s</string>
+    <string name="about_copyright">© 2026 SMP Tech. All Rights Reserved.</string>
+    <string name="about_powered_by">Powered By Sett Min Paing</string>
+    <string name="battery_keep_alive">Battery Optimization (ချိတ်ဆက်မှု မပြတ်ရန်)</string>
+    <string name="app_rules_title">App Rules</string>
+    <string name="app_rules_sub">VPN မဖြတ်စေချင်တဲ့ app တွေ ရွေးပါ</string>
+    <string name="app_rules_search_hint">App ရှာရန်</string>
+
+    <!-- home / configs split -->
+    <string name="home_empty">Server မရှိပါ\nConfig ရွေးပါ</string>
+    <string name="section_servers">ဆာဗာများ</string>
+    <string name="section_subscriptions">Subscription များ</string>
+    <string name="add_config">Config ထည့်ရန်</string>
+    <string name="selected_active_badge">အသုံးပြုနေ</string>
+    <string name="ping_test">Ping စစ်ရန်</string>
+
+    <!-- subscriptions -->
+    <string name="subs_title">Subscriptions</string>
+    <string name="subs_empty">Subscription မရှိသေးပါ။\nURL ထည့်ရန် + ကို နှိပ်ပါ။</string>
+    <string name="subs_add_title">Subscription ထည့်ရန်</string>
+    <string name="subs_edit_title">Subscription ပြင်ရန်</string>
+    <string name="subs_hint_name">အမည် (မဖြစ်မနေ မဟုတ်)</string>
+    <string name="subs_hint_url">Subscription URL</string>
+    <string name="subs_invalid_url">URL သည် http:// သို့မဟုတ် https:// ဖြင့် စရန် လိုအပ်သည်</string>
+    <string name="subs_update_now">အခု ဆွဲယူ</string>
+    <string name="subs_updating">%1$s ကို update လုပ်နေသည်…</string>
+    <string name="subs_updated_ok">%1$s updated: server %2$d ခု</string>
+    <string name="subs_update_fail">Update မအောင်မြင်ပါ: %1$s</string>
+    <string name="subs_delete_title">Subscription ဖျက်ရန်</string>
+    <string name="subs_delete_msg">%1$s နှင့် ၎င်း၏ server များအားလုံး ဖျက်မလား။</string>
+    <string name="subs_last_updated">%1$s တွင် update လုပ်ပြီး</string>
+    <string name="subs_never_updated">မ update ရသေး</string>
+    <string name="subs_scan_qr">URL အတွက် QR scan</string>
+    <string name="auto_select">Auto Select</string>
+    <string name="auto_selecting">အမြန်ဆုံး server ကို ရှာနေသည်…</string>
+    <string name="auto_selected_ok">ရွေးပြီး: %1$s</string>
+    <string name="auto_select_none">အလုပ်လုပ်တဲ့ server မတွေ့ပါ</string>
+    <string name="ago_now">ခုခုလော</string>
+    <string name="ago_min">မိနစ် %1$d အကြာက</string>
+    <string name="ago_hours">နာရီ %1$d အကြာက</string>
+    <string name="ago_days">ရက် %1$d အကြာက</string>
+    <string name="uptime">ချိတ်ဆက်ချိန်</string>
+
+    <string name="notif_connecting">Server နှင့် ချိတ်ဆက်နေသည်…</string>
+    <string name="notif_connected">ချိတ်ဆက်ပြီး • %1$s</string>
+
+    <string name="sheet_title">Server ထည့်ရန်</string>
+    <string name="sheet_clipboard">Clipboard မှ import လုပ်ရန်</string>
+    <string name="sheet_scan">QR code scan ရန်</string>
+    <string name="sheet_gallery">Gallery မှ QR import လုပ်ရန်</string>
+    <string name="sheet_manual">ကိုယ်တိုင်ရိုက်ထည့်ရန်</string>
+    <string name="add_server">Server ထည့်ရန်</string>
+
+    <string name="qr_prompt">QR code ကို ဘောင်အတွင်း ထားပါ</string>
+    <string name="qr_not_found">ဓာတ်ပုံထဲတွင် QR code မတွေ့ပါ</string>
+
+    <string name="settings_title">ဆက်တင်များ</string>
+    <string name="back">နောက်သို့</string>
+    <string name="settings_routing_section">Routing စနစ်</string>
+    <string name="routing_global">Global — အားလုံး VPN ဖြင့်သွားမည်</string>
+    <string name="routing_split_cn">Smart Split — တရုပ် site များ direct (TikTok၊ WeChat…)</string>
+    <string name="routing_direct_all">Direct — VPN ကို ကျော်၍သွားမည် (စမ်းသပ်ရန်)</string>
+    <string name="settings_dns_section">DNS server များ</string>
+    <string name="settings_hint">ပြောင်းလဲမှုများကို နောက်တစ်ကြိမ် ချိတ်ဆက်သည့်အခါ အသုံးချမည်။</string>
+    <string name="imported_ok">Import အောင်မြင်: %1$s</string>
+    <string name="import_exists">ဤ key သည် list ထဲတွင် ရှိပြီးသား ဖြစ်သည်</string>
+    <string name="import_unsupported">vless:// link သာ ထောက်ပံ့သည်</string>
+    <string name="import_failed">vless key ဖတ်ရှုမရပါ</string>
+    <string name="clipboard_empty">Clipboard တွင် ဘာမျှ မရှိပါ</string>
+
+    <string name="pinging">Server %1$d ခုကို ping စစ်နေသည်…</string>
+    <string name="pinging_all_title">အားလုံး Ping စစ်ရန်</string>
+    <string name="auto_ping">Auto Ping</string>
+    <string name="auto_ping_on">Auto Ping ဖွင့်လိုက်သည်</string>
+    <string name="auto_ping_off">Auto Ping ပိတ်လိုက်သည်</string>
+    <string name="latency_ms">%1$d ms</string>
+    <string name="latency_timeout">မရောက်ပါ</string>
+    <string name="latency_none">—</string>
+
+    <string name="active_badge">အသုံးပြုနေ</string>
+    <string name="edit_server">Server ပြင်ဆင်ရန်</string>
+    <string name="save">သိမ်းဆည်း</string>
+    <string name="delete">ဖျက်ရန်</string>
+    <string name="cancel">မလုပ်တော့</string>
+    <string name="ask_delete_title">Server ကို ဖျက်မလား?</string>
+    <string name="ask_delete_msg">"%1$s" ကို list မှ ဖျက်မည်။</string>
+    <string name="ask_delete_msg_edit">ဤ server ကို အပြီးအပိုင် ဖျက်မည်လား?</string>
+    <string name="deleted_ok">Server ဖျက်ပြီး</string>
+    <string name="delete_all">အားလုံး ဖျက်ရန်</string>
+    <string name="delete_all_configs">Config အားလုံး ဖျက်ရန်</string>
+    <string name="ask_delete_all">Server အားလုံးကို ဖျက်မည်လား? ပြန်ရနိုင်မည် မဟုတ်ပါ။</string>
+    <string name="deleted_all_ok">Server အားလုံး ဖျက်ပြီး</string>
+    <string name="saved_ok">သိမ်းဆည်းပြီး</string>
+    <string name="toast_reconnect_needed">ပြောင်းလဲမှုများ အသုံးချရန် ပြန်ချိတ်ဆက်ပါ</string>
+    <string name="err_invalid_input">Address၊ port၊ UUID များကို စစ်ကြည့်ပါ</string>
+    <string name="err_no_server">အသုံးပြုရန် server မရှိပါ</string>
+    <string name="err_vpn_denied">VPN ခွင့်ပြုချက် ငြင်းခံလိုက်သည်</string>
+    <string name="err_vpn_establish">VPN interface ဖွင့်လို့ မရပါ။\n• လက်ရှိဖွင့်ထားတဲ့ တခြား VPN app ရှိခဲ့လျှင် အရင်ပိတ်ပါ\n• ပြီးမှ Connect ကို ထပ်နှိပ်ပါ</string>
+    <string name="tap_to_copy_hint">(error ကူးယူရန် ဤစာကြောင်းကို နှိပ်ပါ)</string>
+    <string name="err_start_failed">Xray core စတင်၍ မရပါ</string>
+    <string name="err_tun2socks">Tunnel engine ကို ဒီဖုန်းမှာ စတင်လို့ မရပါ</string>
+    <string name="empty_list">Server မရှိသေးပါ။\nVLESS key ထည့်ရန် + ကို နှိပ်ပါ။</string>
+
+    <string name="share_link">Link မျှဝေရန်</string>
+    <string name="share_qr">QR code ပြရန်</string>
+    <string name="copy_uri">Link ကူးယူရန်</string>
+    <string name="copied_ok">Clipboard သို့ ကူးယူပြီး</string>
+
+    <string name="section_identity">အချက်အလက်</string>
+    <string name="section_transport">Transport (လိုက်ဆက်ပုံ)</string>
+    <string name="section_security">လုံခြုံရေး (TLS / REALITY)</string>
+    <string name="section_features">အခြား feature များ</string>
+
+    <string name="f_remark">နာမည်</string>
+    <string name="f_address">Address (domain သို့ IP)</string>
+    <string name="f_port">Port</string>
+    <string name="f_uuid">UUID (user ID)</string>
+    <string name="f_encryption">Encryption</string>
+    <string name="f_flow">Flow</string>
+    <string name="f_network">Network (transport)</string>
+    <string name="f_header_type">Header type</string>
+    <string name="f_host">Host</string>
+    <string name="f_path">Path</string>
+    <string name="f_service_name">gRPC service name</string>
+    <string name="f_seed">mKCP seed</string>
+    <string name="f_security">Security</string>
+    <string name="f_sni">SNI / Server name</string>
+    <string name="f_fingerprint">Fingerprint (uTLS)</string>
+    <string name="f_alpn">ALPN (ကော်မာဖြင့် ခွဲရေးပါ)</string>
+    <string name="f_allow_insecure">TLS certificate ယုံကြည်မှုမရှိလည်း ခွင့်ပြု</string>
+    <string name="f_public_key">REALITY public key (pbk)</string>
+    <string name="f_short_id">REALITY short ID (sid)</string>
+    <string name="f_spider_x">REALITY spiderX (spx)</string>
+    <string name="f_mux">Multiplexing (mux) ဖွင့်ရန်</string>
+    <string name="f_fragment">Enable Fragmentation (ISP throttling ခေါင်းအောင်)</string>
+
+    <string name="settings_about_title">အကြောင်း</string>
+    <string name="about_brand">LionRay Pro</string>
+    <string name="about_subtitle">Premium Network Utility And Client Proxy</string>
+    <string name="about_app_version">App Version</string>
+    <string name="about_xray_core">Xray Core Version</string>
+    <string name="about_support">Support</string>
+    <string name="about_telegram">Telegram Channel</string>
+    <string name="about_developer">Developer</string>
+    <string name="about_developer_name">Sett Min Paing</string>
+    <string name="xray_core_version">Xray Core v%1$s</string>
+    <string name="checking_latest">နောက်ဆုံးပေါ် Xray Core စစ်ဆေးနေ…</string>
+    <string name="latest_ok">Xray Core သည် နောက်ဆုံးပေါ် ✓</string>
+    <string name="latest_unknown">update စစ်ဆေးမရပါ</string>
+    <string name="update_available">Xray Core v%1$s အသစ် ရှိနေသည် — အောက်မှ “Xray Core Update လုပ်ရန်” နှိပ်ပါ</string>
+
+    <string name="update_core_title">⬇ Xray Core Update လုပ်ရန်</string>
+    <string name="update_now">Update</string>
+    <string name="core_update_banner_title">Xray Core v%1$s အသစ် ရှိသည်</string>
+    <string name="core_update_banner_sub">နောက်ဆုံးပေါ် core ထည့်ရန် Update နှိပ်ပါ</string>
+    <string name="core_update_dialog_msg">Xray Core version အသစ်တစ်ခု GitHub တွင် ရှိနေသည်။\n\nထည့်ရန် Update ကို နှိပ်ပါ။ Install ပြီးနောက် app ကို အလိုအလျောက် ပြန်ဖွင့်ပေးမည်။\n\nCancel နှိပ်၍ လက်ရှိ version ဖြင့် ဆက်သုံးနိုင်သည်။</string>
+    <string name="downloading_core">ဒေါင်းလုပ် ဆွဲနေ…</string>
+    <string name="core_updated_ok">Xray Core v%1$s ထည့်ပြီး — ပြန်ချိတ်ဆက်ပါ</string>
+    <string name="core_update_fail">core update မအောင်မြင်ပါ: %1$s</string>
+    <string name="core_update_restricted">Android 10+ မှာ system security ကြောင့် core update မရပါ။\n\nAPK အသစ်ကို Telegram Channel မှ download ပြီး install ပါ။</string>
+    <string name="apk_update_title">App Update v%1$s</string>
+    <string name="apk_update_msg">LionRay VPN ရဲ့ version အသစ်ရှိပါတယ်။\n\nUpdate နှိပ်ပြီး APK အသစ်ကို install ပါ။</string>
+    <string name="downloading_apk">APK download ဆွဲနေပါတယ်…</string>
+    <string name="apk_downloaded">Download ပြီးပါပြီ — installer ဖွင့်နေပါတယ်…</string>
+    <string name="apk_update_fail">APK update မအောင်မြင်ပါ: %1$s</string>
+
+    <string name="auto_reconnect">အလိုအလျောက် ပြန်ချိတ်ဆက်ခြင်း</string>
+    <string name="auto_reconnect_sub">Network ပြောင်းရင် (WiFi ↔ SIM) သူ့ဘာသာ ပြန်ချိတ်ဆက်သည်</string>
+    <string name="auto_failover">အလိုအလျောက် Server ပြောင်းချိတ်ခြင်း</string>
+    <string name="auto_failover_sub">ချိတ်ထားတဲ့ server မအားသွားရင် အလုပ်လုပ်တဲ့ အမြန်ဆုံး server ဆီ သူ့ဘာသာ ပြောင်းချိတ်ပေးသည်</string>
+    <string name="failover_switched">%1$s သို့ ပြောင်းချိတ်ပြီး</string>
+    <string name="settings_features">လုပ်ဆောင်ချက်များ</string>
+    <string name="f_password">စကားဝှက်</string>
+    <string name="reconnected_ok">ပြန်ချိတ်ဆက်ပြီး</string>
+
+    <string name="ad_blocker">Ad Blocker</string>
+    <string name="ad_blocker_sub">ကြော်ငြာနှင့် tracker များကို ပိတ်ပင်သည်</string>
+    <string name="applies_next_connect">နောက်ချိတ်ဆက်ချိန်မှ သက်ရောက်မည်</string>
+
+    <string name="ads_blocked_fmt">ကြော်ငြာ %1$d ခု ပိတ်ပြီး</string>
+    <string name="pill_on">ဖွင့်</string>
+    <string name="pill_off">ပိတ်</string>
+    <string name="net_wifi">WiFi</string>
+    <string name="net_mobile">မိုဘိုင်းဒေတာ</string>
+    <string name="net_none">Network မရှိ</string>
+    <string name="net_other">Network</string>
+
+    <string name="bypass_title">VPN မဖြတ်ရန် Domain စာရင်း</string>
+    <string name="bypass_sub">ဒီစာရင်းထဲက website တွေက VPN ကိုမဖြတ်ပဲ ဖုန်း IP နဲ့ တန်းဝင်မယ် — Cloudflare/proxy IP တွေကို block လုပ်တဲ့ site တွေအတွက်။ တစ်ကြောင်းစီရေးပါ။</string>
+    <string name="bypass_hint">example.com\nnetflix.com\nbank.com.mm</string>
+    <string name="bypass_saved_count">domain %1$d ခု သိမ်းပြီး</string>
+
+    <string name="voip_vpn">VoIP ခေါ်ဆိုမှုများကို VPN ဖြင့် သွားရန်</string>
+    <string name="voip_vpn_sub">ဖွင့်ထားပါ — call audio/video ကို encrypted tunnel အတွင်းမှ ပို့ပြီး ISP block/throttle ခံရတာ ကာကွယ်သည် (Messenger / Viber / Telegram)</string>
+</resources>

@@ -1,0 +1,19 @@
+Place the file "libv2ray.aar" in this folder.
+
+It is the gomobile build of Xray-core from:
+  https://github.com/2dust/AndroidLibXrayLite
+
+Option 1 - build it yourself (needs Go + Android SDK/NDK):
+  git clone https://github.com/2dust/AndroidLibXrayLite
+  cd AndroidLibXrayLite
+  gomobile init
+  go mod tidy -v
+  gomobile bind -v -androidapi 24 -trimpath -ldflags='-s -w -buildid= -checklinkname=0' ./
+  copy libv2ray.aar into this folder
+
+Option 2 - download a prebuilt mirror:
+  https://sourceforge.net/projects/androidlibxraylite.mirror/files/
+
+IMPORTANT: use a recent build (Xray-core >= v26.1.23). The app uses the
+native TUN inbound ("protocol":"tun") which receives the VpnService file
+descriptor through StartLoop(config, tunFd).

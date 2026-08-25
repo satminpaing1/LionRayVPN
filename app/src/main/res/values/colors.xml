@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- LionRay brand -->
+    <color name="brand">#F59E0B</color>
+    <color name="on_brand">#201200</color>
+    <color name="brand_dark">#B45309</color>
+    <color name="brand_neon">#FF8A1E</color>
+
+    <!-- vivid hero gradient -->
+    <color name="hero_start">#38BDF8</color>
+    <color name="hero_center">#6366F1</color>
+    <color name="hero_end">#A855F7</color>
+    <color name="accent_indigo">#4F46E5</color>
+
+    <!-- light surfaces -->
+    <color name="bg_app">#EEF1F7</color>
+    <color name="surface_card">#FFFFFF</color>
+    <color name="surface_card_active">#EFF3FF</color>
+    <color name="surface_card_stroke">#E4E8F2</color>
+    <color name="text_primary">#171A2C</color>
+    <color name="text_secondary">#667085</color>
+    <color name="accent_cyan">#0EA5E9</color>
+
+    <!-- bottom nav states -->
+    <color name="nav_active">#FF4E8E</color>
+    <color name="nav_inactive">#9AA1B2</color>
+
+    <!-- ping pills -->
+    <color name="ping_green">#22C55E</color>
+    <color name="ping_amber">#F59E0B</color>
+    <color name="ping_red">#EF4444</color>
+    <color name="ping_gray">#9CA3AF</color>
+
+    <color name="text_muted">#667085</color>
+</resources>

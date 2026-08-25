@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LionRay VPN</string>
+    <string name="channel_vpn">VPN status</string>
+    <string name="channel_vpn_desc">Shows the LionRay VPN connection state</string>
+
+    <!-- connection card -->
+    <string name="status_ready">Ready</string>
+    <string name="status_connecting">Connecting…</string>
+    <string name="status_connected">Connected</string>
+    <string name="status_error">Connection failed</string>
+    <string name="btn_connect">Connect</string>
+    <string name="btn_disconnect">Disconnect</string>
+    <string name="hint_no_server">No server selected</string>
+    <string name="selected_server">Selected: %1$s</string>
+    <string name="err_dialog_title">Connection failed</string>
+    <string name="btn_copy_error">Copy error</string>
+    <string name="err_unknown">Unknown error</string>
+    <string name="ok">OK</string>
+
+    <!-- speed -->
+    <string name="speed_down_label">Download</string>
+    <string name="speed_up_label">Upload</string>
+
+    <!-- exit IP -->
+    <string name="exit_ip_checking">Checking real exit IP…</string>
+    <string name="exit_ip_fail">Could not detect exit IP (tap to retry)</string>
+
+    <!-- bottom navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_configs">Configs</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- language -->
+    <string name="settings_language_section">Language / ဘာသာစကား</string>
+    <string name="lang_choose_title">Choose your language</string>
+    <string name="lang_english">English</string>
+    <string name="lang_myanmar">မြန်မာ</string>
+    <string name="auto_ping_periodic">Auto ping every 60 seconds</string>
+
+    <!-- about -->
+    <string name="about_version">Version %1$s</string>
+    <string name="about_copyright">© 2026 SMP Tech. All Rights Reserved.</string>
+    <string name="about_powered_by">Powered By Sett Min Paing</string>
+    <string name="battery_keep_alive">Battery Optimization (keep connection alive)</string>
+    <string name="app_rules_title">App Rules</string>
+    <string name="app_rules_sub">Choose apps that should NOT go through the VPN</string>
+    <string name="app_rules_search_hint">Search apps</string>
+
+    <!-- home / configs split -->
+    <string name="home_empty">No Server\nSelect Config</string>
+    <string name="section_servers">Servers</string>
+    <string name="section_subscriptions">Subscriptions</string>
+    <string name="add_config">Add config</string>
+    <string name="selected_active_badge">IN USE</string>
+    <string name="ping_test">Ping</string>
+
+    <!-- subscriptions -->
+    <string name="subs_title">Subscriptions</string>
+    <string name="subs_empty">No subscriptions yet.\nTap + to add a subscription URL.</string>
+    <string name="subs_add_title">Add subscription</string>
+    <string name="subs_edit_title">Edit subscription</string>
+    <string name="subs_hint_name">Name (optional)</string>
+    <string name="subs_hint_url">Subscription URL</string>
+    <string name="subs_invalid_url">URL must start with http:// or https://</string>
+    <string name="subs_update_now">Update now</string>
+    <string name="subs_updating">Updating %1$s…</string>
+    <string name="subs_updated_ok">%1$s updated: %2$d servers</string>
+    <string name="subs_update_fail">Update failed: %1$s</string>
+    <string name="subs_delete_title">Delete subscription</string>
+    <string name="subs_delete_msg">Delete %1$s and all its servers?</string>
+    <string name="subs_last_updated">updated %1$s</string>
+    <string name="subs_never_updated">never updated</string>
+    <string name="subs_scan_qr">Scan QR for URL</string>
+    <string name="auto_select">Auto Select</string>
+    <string name="auto_selecting">Finding the fastest server…</string>
+    <string name="auto_selected_ok">Selected: %1$s</string>
+    <string name="auto_select_none">No working server found</string>
+    <string name="ago_now">just now</string>
+    <string name="ago_min">%1$d min ago</string>
+    <string name="ago_hours">%1$d h ago</string>
+    <string name="ago_days">%1$d d ago</string>
+    <string name="uptime">Uptime</string>
+
+    <!-- notification -->
+    <string name="notif_connecting">Connecting to server…</string>
+    <string name="notif_connected">Connected • %1$s</string>
+
+    <!-- add sheet -->
+    <string name="sheet_title">Add server</string>
+    <string name="sheet_clipboard">Import from clipboard</string>
+    <string name="sheet_scan">Scan QR code</string>
+    <string name="sheet_gallery">Import QR from gallery</string>
+    <string name="sheet_manual">Enter manually</string>
+    <string name="add_server">Add server</string>
+
+    <!-- import -->
+    <string name="qr_prompt">Place the QR code inside the frame</string>
+    <string name="qr_not_found">No QR code found in that image</string>
+
+    <!-- settings -->
+    <string name="settings_title">Settings</string>
+    <string name="back">Back</string>
+    <string name="settings_routing_section">Routing mode</string>
+    <string name="routing_global">Global — everything through the VPN</string>
+    <string name="routing_split_cn">Smart Split — China sites direct (TikTok, WeChat…)</string>
+    <string name="routing_direct_all">Direct — bypass the VPN (testing)</string>
+    <string name="settings_dns_section">DNS servers</string>
+    <string name="settings_hint">Changes apply the next time you connect.</string>
+    <string name="imported_ok">Imported: %1$s</string>
+    <string name="import_exists">This key is already in the list</string>
+    <string name="import_unsupported">Only vless:// links are supported</string>
+    <string name="import_failed">Could not read the vless key</string>
+    <string name="clipboard_empty">Clipboard is empty</string>
+
+    <!-- ping -->
+    <string name="pinging">Pinging %1$d servers…</string>
+    <string name="pinging_all_title">Ping all</string>
+    <string name="auto_ping">Auto ping</string>
+    <string name="auto_ping_on">Auto ping enabled</string>
+    <string name="auto_ping_off">Auto ping disabled</string>
+    <string name="latency_ms">%1$d ms</string>
+    <string name="latency_timeout">Timeout</string>
+    <string name="latency_none">—</string>
+
+    <!-- list / edit -->
+    <string name="active_badge">ACTIVE</string>
+    <string name="edit_server">Edit server</string>
+    <string name="save">Save</string>
+    <string name="delete">Delete</string>
+    <string name="cancel">Cancel</string>
+    <string name="ask_delete_title">Delete server?</string>
+    <string name="ask_delete_msg">"%1$s" will be removed from the list.</string>
+    <string name="ask_delete_msg_edit">Delete this server permanently?</string>
+    <string name="deleted_ok">Server deleted</string>
+    <string name="delete_all">Delete all</string>
+    <string name="delete_all_configs">Delete All Configs</string>
+    <string name="ask_delete_all">Delete ALL servers? This cannot be undone.</string>
+    <string name="deleted_all_ok">All servers deleted</string>
+    <string name="saved_ok">Saved</string>
+    <string name="toast_reconnect_needed">Reconnect to apply the changes</string>
+    <string name="err_invalid_input">Please check address, port and UUID</string>
+    <string name="err_no_server">No valid server selected</string>
+    <string name="err_vpn_denied">VPN permission denied</string>
+    <string name="err_vpn_establish">Could not open the VPN interface.\n• If another VPN app is running, disconnect it first\n• Then press Connect again</string>
+    <string name="tap_to_copy_hint">(tap this line to copy the error)</string>
+    <string name="err_start_failed">Xray core failed to start</string>
+    <string name="err_tun2socks">Tunnel engine failed to start on this device</string>
+    <string name="empty_list">No servers yet.\nTap + to import a VLESS key.</string>
+
+    <!-- share -->
+    <string name="share_link">Share link</string>
+    <string name="share_qr">Show QR code</string>
+    <string name="copy_uri">Copy link</string>
+    <string name="copied_ok">Copied to clipboard</string>
+
+    <!-- sections -->
+    <string name="section_identity">Identity</string>
+    <string name="section_transport">Transport</string>
+    <string name="section_security">Security (TLS / REALITY)</string>
+    <string name="section_features">Features</string>
+
+    <!-- fields -->
+    <string name="f_remark">Name / remark</string>
+    <string name="f_address">Address (domain or IP)</string>
+    <string name="f_port">Port</string>
+    <string name="f_uuid">UUID (user ID)</string>
+    <string name="f_encryption">Encryption</string>
+    <string name="f_flow">Flow</string>
+    <string name="f_network">Network (transport)</string>
+    <string name="f_header_type">Header type</string>
+    <string name="f_host">Host</string>
+    <string name="f_path">Path</string>
+    <string name="f_service_name">gRPC service name</string>
+    <string name="f_seed">mKCP seed</string>
+    <string name="f_security">Security</string>
+    <string name="f_sni">SNI / Server name</string>
+    <string name="f_fingerprint">Fingerprint (uTLS)</string>
+    <string name="f_alpn">ALPN (comma separated)</string>
+    <string name="f_allow_insecure">Allow insecure TLS certificates</string>
+    <string name="f_public_key">REALITY public key (pbk)</string>
+    <string name="f_short_id">REALITY short ID (sid)</string>
+    <string name="f_spider_x">REALITY spiderX (spx)</string>
+    <string name="f_mux">Enable multiplexing (mux)</string>
+    <string name="f_fragment">Enable Fragmentation (bypass ISP throttling)</string>
+    <string name="settings_about_title">About</string>
+    <string name="about_brand">LionRay Pro</string>
+    <string name="about_subtitle">Premium Network Utility And Client Proxy</string>
+    <string name="about_app_version">App Version</string>
+    <string name="about_xray_core">Xray Core Version</string>
+    <string name="about_support">Support</string>
+    <string name="about_telegram">Telegram Channel</string>
+    <string name="about_developer">Developer</string>
+    <string name="about_developer_name">Sett Min Paing</string>
+    <string name="xray_core_version">Xray Core v%1$s</string>
+    <string name="checking_latest">checking latest Xray Core…</string>
+    <string name="latest_ok">Xray Core is up to date ✓</string>
+    <string name="latest_unknown">could not check for updates</string>
+    <string name="update_available">new Xray Core v%1$s available — tap “Update Xray Core” below</string>
+
+    <string name="update_core_title">⬇ Update Xray Core</string>
+    <string name="update_now">Update</string>
+    <string name="core_update_banner_title">Xray Core v%1$s available</string>
+    <string name="core_update_banner_sub">Tap Update to install the latest core</string>
+    <string name="core_update_dialog_msg">A newer Xray Core version is available on GitHub.\n\nTap Update to download and install it. The app will restart automatically after installation.\n\nYou can also continue using the current version by tapping Cancel.</string>
+    <string name="downloading_core">downloading…</string>
+    <string name="core_updated_ok">Xray Core v%1$s installed — reconnect to use it</string>
+    <string name="core_update_fail">core update failed: %1$s</string>
+    <string name="core_update_restricted">Core update is not supported on Android 10+ due to system security restrictions.\n\nPlease install the latest APK from the Telegram Channel.</string>
+    <string name="apk_update_title">App Update v%1$s</string>
+    <string name="apk_update_msg">A new version of LionRay VPN is available.\n\nTap Update to download and install the new APK.</string>
+    <string name="downloading_apk">Downloading APK…</string>
+    <string name="apk_downloaded">Download complete — opening installer…</string>
+    <string name="apk_update_fail">APK update failed: %1$s</string>
+
+    <string name="auto_reconnect">Auto Reconnect</string>
+    <string name="auto_reconnect_sub">Reconnect automatically when the network changes (WiFi ↔ SIM)</string>
+    <string name="auto_failover">Auto-Failover</string>
+    <string name="auto_failover_sub">If the connected server stops working, switch to the fastest working one automatically</string>
+    <string name="failover_switched">Switched to %1$s</string>
+    <string name="settings_features">Features</string>
+    <string name="f_password">Password</string>
+    <string name="reconnected_ok">reconnected</string>
+
+    <string name="ad_blocker">Ad Blocker</string>
+    <string name="ad_blocker_sub">Block ads and trackers at DNS/routing level (NetShield-style)</string>
+    <string name="applies_next_connect">Applies on next connect</string>
+
+    <string name="ads_blocked_fmt">%1$d ads blocked</string>
+    <string name="pill_on">ON</string>
+    <string name="pill_off">OFF</string>
+    <string name="net_wifi">WiFi</string>
+    <string name="net_mobile">Mobile data</string>
+    <string name="net_none">No network</string>
+    <string name="net_other">Network</string>
+
+    <string name="bypass_title">Direct / Bypass Domains</string>
+    <string name="bypass_sub">Sites listed here bypass the VPN and use your phone IP. One per line — for sites that block Cloudflare/proxy IPs.</string>
+    <string name="bypass_hint">example.com\nnetflix.com\nbank.com.mm</string>
+    <string name="bypass_saved_count">%1$d domains saved</string>
+
+    <string name="voip_vpn">VoIP Calls Through VPN</string>
+    <string name="voip_vpn_sub">Keep ON — routes call audio/video through the encrypted tunnel so calls survive ISP blocking/throttling (Messenger / Viber / Telegram)</string>
+</resources>

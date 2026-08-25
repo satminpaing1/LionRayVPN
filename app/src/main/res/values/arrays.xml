@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="flow_options">
+        <item></item>
+        <item>xtls-rprx-vision</item>
+        <item>xtls-rprx-vision-udp443</item>
+    </string-array>
+
+    <string-array name="network_options">
+        <item>tcp</item>
+        <item>ws</item>
+        <item>grpc</item>
+        <item>h2</item>
+        <item>httpupgrade</item>
+        <item>xhttp</item>
+        <item>splithttp</item>
+        <item>kcp</item>
+        <item>quic</item>
+    </string-array>
+
+    <string-array name="header_type_options">
+        <item></item>
+        <item>http</item>
+    </string-array>
+
+    <string-array name="security_options">
+        <item>none</item>
+        <item>tls</item>
+        <item>reality</item>
+    </string-array>
+
+    <string-array name="fingerprint_options">
+        <item></item>
+        <item>chrome</item>
+        <item>firefox</item>
+        <item>safari</item>
+        <item>ios</item>
+        <item>android</item>
+        <item>edge</item>
+        <item>360</item>
+        <item>qq</item>
+        <item>random</item>
+    </string-array>
+</resources>
