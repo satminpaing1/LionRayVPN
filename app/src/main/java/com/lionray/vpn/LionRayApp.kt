@@ -58,9 +58,8 @@ class LionRayApp : Application() {
             SettingsStore.setApkUpdateAvailable(this@LionRayApp, true)
             SettingsStore.setApkUpdateLatestVersion(this@LionRayApp, apkInfo.versionName)
             SettingsStore.setApkUpdateDownloadUrl(this@LionRayApp, apkInfo.downloadUrl)
-        } else {
-            SettingsStore.clearApkUpdateState(this@LionRayApp)
         }
+        // Never clear on network failure — only onResume clears when version actually matches
     }
 
     private fun createNotificationChannels() {

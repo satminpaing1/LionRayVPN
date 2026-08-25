@@ -172,6 +172,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private var pendingInstallFile: java.io.File? = null
+    private var pendingUpdateLatest: String = ""
+
+    private val installPermLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            // Coming back from "Install unknown apps" settings — retry install if file exists
+            val file = pendingInstallFile
+            if (file != null && file.exists()) {
+                com.lionray.vpn.util.ApkUpdater.installApk(this, file)
+            }
+        }
+
     private fun showApkUpdateDialog(latest: String) {
         val progressView = layoutInflater.inflate(
             R.layout.dialog_core_update, null
@@ -235,13 +247,14 @@ class MainActivity : AppCompatActivity() {
                             tvProgress.text = getString(R.string.apk_downloaded)
                             bar.setProgressCompat(100, true)
                             spinner.visibility = View.GONE
-                            // Show "Install" button
+                            // Show "Install" button — do NOT clear update state here
                             dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).isEnabled = true
                             dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).text = getString(R.string.install)
                             dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                                com.lionray.vpn.util.ApkUpdater.installApk(this, file)
-                                SettingsStore.clearApkUpdateState(this@MainActivity)
+                                pendingInstallFile = file
+                                pendingUpdateLatest = latest
                                 dialog.dismiss()
+                                com.lionray.vpn.util.ApkUpdater.installApk(this, file)
                             }
                         },
                         onFailure = {
@@ -387,6 +400,31 @@ class MainActivity : AppCompatActivity() {
         }
         refreshNetworkChip()
         refreshProtectionPills()
+
+        // If we returned from install and the new version is now running, clear update state
+        val currentVersionCode = try {
+            if (Build.VERSION.SDK_INT >= 28)
+                packageManager.getPackageInfo(packageName, 0).longVersionCode.toInt()
+            else @Suppress("DEPRECATION") packageManager.getPackageInfo(packageName, 0).versionCode
+        } catch (_: Throwable) { 0 }
+
+        val latestVersion = SettingsStore.apkUpdateLatestVersion(this)
+        if (latestVersion.isNotEmpty()) {
+            val latestCode = try {
+                val m = Regex("""(\d+)\.(\d+)""").find(latestVersion)
+                if (m != null) {
+                    val (a, b) = m.destructured
+                    a.toInt() * 10000 + b.toInt() * 100
+                } else 0
+            } catch (_: Throwable) { 0 }
+
+            if (currentVersionCode >= latestCode && latestCode > 0) {
+                SettingsStore.clearApkUpdateState(this)
+                pendingInstallFile = null
+            }
+        }
+
+        updateDialogShowing = false
         setupUpdateBanner()
         // Re-check after async core version check completes (network + binary exec)
         if (!LionRayApp.coreUpdateChecked) {
