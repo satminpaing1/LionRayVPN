@@ -266,12 +266,22 @@ object SettingsStore {
             .edit().putBoolean("apk_update_dismissed", true).commit()
     }
 
+    fun apkUpdateDownloadUrl(ctx: Context): String =
+        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+            .getString("apk_update_download_url", "") ?: ""
+
+    fun setApkUpdateDownloadUrl(ctx: Context, url: String) {
+        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+            .edit().putString("apk_update_download_url", url).commit()
+    }
+
     fun clearApkUpdateState(ctx: Context) {
         ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
             .edit()
             .remove("apk_update_available")
             .remove("apk_update_latest")
             .remove("apk_update_dismissed")
+            .remove("apk_update_download_url")
             .commit()
     }
 }

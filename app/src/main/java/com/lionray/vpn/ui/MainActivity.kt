@@ -61,6 +61,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var activeCard: com.lionray.vpn.databinding.ItemServerBinding
     private var timerJob: Job? = null
     private var exitIpJob: Job? = null
+    private var updateDialogShowing = false
 
     // ------------------------------------------------------------ launchers
 
@@ -149,11 +150,13 @@ class MainActivity : AppCompatActivity() {
 
     /** Show / hide the update banner at the top of the home screen. */
     private fun setupUpdateBanner() {
+        if (updateDialogShowing) return
         if (Build.VERSION.SDK_INT >= 29) {
             val apkAvailable = SettingsStore.apkUpdateAvailable(this)
             val apkDismissed = SettingsStore.apkUpdateDismissed(this)
             val apkLatest = SettingsStore.apkUpdateLatestVersion(this)
             if (apkAvailable && !apkDismissed && apkLatest.isNotEmpty()) {
+                updateDialogShowing = true
                 showApkUpdateDialog(apkLatest)
                 return
             }
@@ -162,6 +165,7 @@ class MainActivity : AppCompatActivity() {
             val dismissed = SettingsStore.coreUpdateDismissed(this)
             val latest = SettingsStore.coreUpdateLatestVersion(this)
             if (available && !dismissed && latest.isNotEmpty()) {
+                updateDialogShowing = true
                 showCoreUpdateDialog(latest)
                 return
             }
@@ -176,18 +180,22 @@ class MainActivity : AppCompatActivity() {
         val bar = progressView.findViewById<com.google.android.material.progressindicator.LinearProgressIndicator>(R.id.pbDialogCore)
         val spinner = progressView.findViewById<android.view.View>(R.id.spinnerDialog)
 
+        val storedUrl = SettingsStore.apkUpdateDownloadUrl(this)
+
         val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.apk_update_title, latest))
             .setMessage(getString(R.string.apk_update_msg))
             .setView(progressView)
             .setNegativeButton(R.string.cancel) { d, _ ->
                 SettingsStore.setApkUpdateDismissed(this)
+                updateDialogShowing = false
                 d.dismiss()
             }
             .setPositiveButton(R.string.update_now, null)
             .setCancelable(false)
             .create()
 
+        dialog.setOnDismissListener { updateDialogShowing = false }
         dialog.show()
 
         dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
@@ -200,10 +208,12 @@ class MainActivity : AppCompatActivity() {
 
             Thread {
                 val result = runCatching {
-                    val info = com.lionray.vpn.util.ApkUpdater.fetchLatestApk()
-                        ?: throw Exception("could not find APK on GitHub")
+                    val url = storedUrl.ifEmpty {
+                        com.lionray.vpn.util.ApkUpdater.fetchLatestApk()?.downloadUrl
+                            ?: throw Exception("could not find APK on GitHub")
+                    }
                     val file = com.lionray.vpn.util.ApkUpdater.downloadAndInstall(
-                        this, info.downloadUrl
+                        this, url
                     ) { p ->
                         runOnUiThread {
                             if (p < 0) {
