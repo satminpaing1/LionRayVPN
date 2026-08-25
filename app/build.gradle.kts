@@ -11,7 +11,7 @@ android {
         applicationId = "com.lionray.vpn"
         minSdk = 24
         targetSdk = 33
-        versionCode = 67
+        versionCode = 68
         versionName = "1.26.3.27"
         ndk {
             abiFilters += listOf("arm64-v8a")
