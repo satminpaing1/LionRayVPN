@@ -211,7 +211,8 @@ object XrayConfigBuilder {
                 "domain:web.telegram.org",
                 "domain:telegram.org",
                 "domain:t.me",
-                "domain:tg.dev"
+                "domain:tg.dev",
+                "domain:mt.me"
             ))
             rules.put(
                 JSONObject().put("type", "field")
@@ -219,9 +220,22 @@ object XrayConfigBuilder {
                     .put("network", "udp")
                     .put("outboundTag", if (voipViaProxy) "proxy" else "direct")
             )
+            // Viber & Messenger VoIP media domains
+            val voipDomains = JSONArray(listOf(
+                "domain:viber.com",
+                "domain:viber-cdn.net",
+                "domain:edge-mqtt.facebook.com",
+                "domain:mqtt.facebook.com"
+            ))
+            rules.put(
+                JSONObject().put("type", "field")
+                    .put("domain", voipDomains)
+                    .put("network", "udp")
+                    .put("outboundTag", if (voipViaProxy) "proxy" else "direct")
+            )
             // QUIC/HTTP3 over a CDN ws/tls tunnel is unreliable -> block it so
             // apps fall back to TCP (which proxies perfectly)
-            // However, do NOT block UDP:443 for Telegram (group calls may use it)
+            // However, do NOT block UDP:443 for Telegram/Viber/Messenger (calls may use it)
             rules.put(
                 JSONObject().put("type", "field")
                     .put("network", "udp")

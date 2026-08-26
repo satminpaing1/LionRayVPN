@@ -18,10 +18,14 @@ object SubStore {
 
     val subs = MutableStateFlow<List<Subscription>>(emptyList())
 
+    private val idCounter = java.util.concurrent.atomic.AtomicLong(0)
+
     fun init(context: Context) {
         appContext = context.applicationContext
         file = File(appContext!!.filesDir, FILE_NAME)
         loadFromDisk()
+        val maxId = subs.value.maxOfOrNull { it.id } ?: 0
+        if (maxId >= idCounter.get()) idCounter.set(maxId + 1)
     }
 
     fun get(id: Long): Subscription? = subs.value.firstOrNull { it.id == id }
@@ -56,7 +60,7 @@ object SubStore {
         subs.value = list
     }
 
-    private fun newId(): Long = System.currentTimeMillis()
+    private fun newId(): Long = idCounter.getAndIncrement()
 
     private fun loadFromDisk() {
         try {
