@@ -151,6 +151,7 @@ class MainActivity : AppCompatActivity() {
     /** Show / hide the update banner at the top of the home screen. */
     private fun setupUpdateBanner() {
         if (updateDialogShowing) return
+        if (isDestroyed || isFinishing) return
         if (Build.VERSION.SDK_INT >= 29) {
             val apkAvailable = SettingsStore.apkUpdateAvailable(this)
             val apkDismissed = SettingsStore.apkUpdateDismissed(this)
@@ -200,6 +201,7 @@ class MainActivity : AppCompatActivity() {
             .setMessage(getString(R.string.apk_update_msg))
             .setView(progressView)
             .setNegativeButton(R.string.cancel) { d, _ ->
+                SettingsStore.setApkUpdateDismissed(this)
                 updateDialogShowing = false
                 d.dismiss()
             }
@@ -424,7 +426,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        updateDialogShowing = false
         setupUpdateBanner()
         // Re-check after async core version check completes (network + binary exec)
         if (!LionRayApp.coreUpdateChecked) {

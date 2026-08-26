@@ -55,9 +55,13 @@ class LionRayApp : Application() {
     private suspend fun checkApkUpdate() {
         val apkInfo = runCatching { ApkUpdater.fetchLatestApk() }.getOrNull()
         if (apkInfo != null && ApkUpdater.isNewer(apkInfo, this@LionRayApp)) {
+            val prevLatest = SettingsStore.apkUpdateLatestVersion(this@LionRayApp)
             SettingsStore.setApkUpdateAvailable(this@LionRayApp, true)
             SettingsStore.setApkUpdateLatestVersion(this@LionRayApp, apkInfo.versionName)
             SettingsStore.setApkUpdateDownloadUrl(this@LionRayApp, apkInfo.downloadUrl)
+            if (prevLatest != apkInfo.versionName) {
+                SettingsStore.clearApkUpdateDismissed(this@LionRayApp)
+            }
         }
         // Never clear on network failure — only onResume clears when version actually matches
     }

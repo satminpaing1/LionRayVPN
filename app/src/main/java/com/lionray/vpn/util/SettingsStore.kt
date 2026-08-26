@@ -284,4 +284,11 @@ object SettingsStore {
             .remove("apk_update_download_url")
             .commit()
     }
+
+    fun clearApkUpdateDismissed(ctx: Context) {
+        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+            .edit()
+            .remove("apk_update_dismissed")
+            .commit()
+    }
 }
