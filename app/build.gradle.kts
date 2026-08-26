@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "com.lionray.vpn"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.lionray.vpn"
-        minSdk = 24
-        targetSdk = 33
+        minSdk = 29
+        targetSdk = 36
         versionCode = 10100
         versionName = "1.1"
         ndk {

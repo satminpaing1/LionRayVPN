@@ -22,6 +22,28 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var rgLanguage: RadioGroup
 
     @Volatile private var cachedInstalledVersion: String = ""
+    private var pendingInstallFile: java.io.File? = null
+
+    private val installPermLauncher =
+        registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) {
+            val file = pendingInstallFile
+            if (file != null && file.exists()) {
+                com.lionray.vpn.util.ApkUpdater.installApk(this, file)
+            }
+        }
+
+    private fun launchInstall(file: java.io.File) {
+        if (packageManager.canRequestPackageInstalls()) {
+            com.lionray.vpn.util.ApkUpdater.installApk(this, file)
+        } else {
+            pendingInstallFile = file
+            val intent = android.content.Intent(
+                android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                android.net.Uri.parse("package:$packageName")
+            )
+            installPermLauncher.launch(intent)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -173,7 +195,7 @@ class SettingsActivity : AppCompatActivity() {
                         panel.visibility = android.view.View.GONE
                         result.fold(
                             onSuccess = { file ->
-                                com.lionray.vpn.util.ApkUpdater.installApk(this, file)
+                                launchInstall(file)
                                 toast(R.string.apk_downloaded)
                             },
                             onFailure = { toast(getString(R.string.apk_update_fail, it.message ?: "")) }

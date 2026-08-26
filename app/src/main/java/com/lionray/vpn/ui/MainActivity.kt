@@ -178,12 +178,24 @@ class MainActivity : AppCompatActivity() {
 
     private val installPermLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            // Coming back from "Install unknown apps" settings — retry install if file exists
             val file = pendingInstallFile
             if (file != null && file.exists()) {
                 com.lionray.vpn.util.ApkUpdater.installApk(this, file)
             }
         }
+
+    private fun launchInstall(file: java.io.File) {
+        if (packageManager.canRequestPackageInstalls()) {
+            com.lionray.vpn.util.ApkUpdater.installApk(this, file)
+        } else {
+            pendingInstallFile = file
+            val intent = android.content.Intent(
+                android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                android.net.Uri.parse("package:$packageName")
+            )
+            installPermLauncher.launch(intent)
+        }
+    }
 
     private fun showApkUpdateDialog(latest: String) {
         val progressView = layoutInflater.inflate(
@@ -256,7 +268,7 @@ class MainActivity : AppCompatActivity() {
                                 pendingInstallFile = file
                                 pendingUpdateLatest = latest
                                 dialog.dismiss()
-                                com.lionray.vpn.util.ApkUpdater.installApk(this, file)
+                                launchInstall(file)
                             }
                         },
                         onFailure = {
