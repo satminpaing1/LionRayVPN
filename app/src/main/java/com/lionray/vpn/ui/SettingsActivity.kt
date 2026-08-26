@@ -1,6 +1,7 @@
 package com.lionray.vpn.ui
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.widget.RadioButton
 import android.widget.RadioGroup
@@ -19,6 +20,8 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var rgRouting: RadioGroup
     private lateinit var rgDns: RadioGroup
     private lateinit var rgLanguage: RadioGroup
+
+    @Volatile private var cachedInstalledVersion: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,18 +51,39 @@ class SettingsActivity : AppCompatActivity() {
         setupAbout()
         setupNav()
 
-        // re-check core update in background when Settings opens
         recheckCoreUpdate()
     }
 
     override fun onResume() {
         super.onResume()
+
+        val currentCode = try {
+            val info = packageManager.getPackageInfo(packageName, 0)
+            if (Build.VERSION.SDK_INT >= 28) info.longVersionCode.toInt()
+            else @Suppress("DEPRECATION") info.versionCode
+        } catch (_: Throwable) { 0 }
+
+        if (Build.VERSION.SDK_INT >= 29) {
+            val latest = SettingsStore.apkUpdateLatestVersion(this)
+            if (latest.isNotEmpty() && currentCode > 0) {
+                val latestCode = try {
+                    val m = Regex("""(\d+)\.(\d+)""").find(latest)
+                    if (m != null) { val (a, b) = m.destructured; a.toInt() * 10000 + b.toInt() * 100 }
+                    else 0
+                } catch (_: Throwable) { 0 }
+                if (currentCode >= latestCode && latestCode > 0) {
+                    SettingsStore.clearApkUpdateState(this)
+                }
+            }
+        }
+
         recheckCoreUpdate()
     }
 
     private fun recheckCoreUpdate() {
         Thread {
             val installed = com.lionray.vpn.core.XrayBridge.version()
+            cachedInstalledVersion = installed
             val latest = runCatching { com.lionray.vpn.util.VersionChecker.latestXray() }.getOrNull()
             if (installed != "unknown" && latest != null &&
                 com.lionray.vpn.util.VersionChecker.isNewer(installed, latest)
@@ -88,7 +112,7 @@ class SettingsActivity : AppCompatActivity() {
         val pct = findViewById<android.widget.TextView>(R.id.tvCorePercent)
         val dot = findViewById<android.view.View>(R.id.viewUpdateDot)
 
-        val installedVer = com.lionray.vpn.core.XrayBridge.version()
+        val installedVer = cachedInstalledVersion.ifEmpty { "…" }
 
         val hasUpdate: Boolean
         val latestVer: String
@@ -150,9 +174,7 @@ class SettingsActivity : AppCompatActivity() {
                         result.fold(
                             onSuccess = { file ->
                                 com.lionray.vpn.util.ApkUpdater.installApk(this, file)
-                                SettingsStore.clearApkUpdateState(this@SettingsActivity)
-                                dot.visibility = android.view.View.GONE
-                                btn.text = getString(R.string.xray_core_version, installedVer) + "  ✓"
+                                toast(R.string.apk_downloaded)
                             },
                             onFailure = { toast(getString(R.string.apk_update_fail, it.message ?: "")) }
                         )
@@ -192,7 +214,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun setupAbout() {
         val panel = findViewById<android.view.View>(R.id.aboutPanel)
         val chevron = findViewById<android.widget.TextView>(R.id.tvAboutChevron)
-        val core = com.lionray.vpn.core.XrayBridge.version()
+        val core = cachedInstalledVersion.ifEmpty { "…" }
         findViewById<android.widget.TextView>(R.id.tvXrayVersion).text =
             getString(R.string.xray_core_version, core)
 
