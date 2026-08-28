@@ -102,19 +102,37 @@ class SettingsActivity : AppCompatActivity() {
         recheckCoreUpdate()
     }
 
+    // On Android 10+ the core ships inside the APK, so the only real update is a
+    // newer APK release. This re-checks GitHub every time the Settings screen is
+    // shown so a just-published release is detected instead of only at app launch.
     private fun recheckCoreUpdate() {
         Thread {
             val installed = com.lionray.vpn.core.XrayBridge.version()
             cachedInstalledVersion = installed
-            val latest = runCatching { com.lionray.vpn.util.VersionChecker.latestXray() }.getOrNull()
-            if (installed != "unknown" && latest != null &&
-                com.lionray.vpn.util.VersionChecker.isNewer(installed, latest)
-            ) {
-                SettingsStore.setCoreUpdateAvailable(this, true)
-                SettingsStore.setCoreUpdateLatestVersion(this, latest)
+
+            if (android.os.Build.VERSION.SDK_INT >= 29) {
+                val apkInfo = runCatching { com.lionray.vpn.util.ApkUpdater.fetchLatestApk() }.getOrNull()
+                if (apkInfo != null && com.lionray.vpn.util.ApkUpdater.isNewer(apkInfo, this)) {
+                    val prevLatest = SettingsStore.apkUpdateLatestVersion(this)
+                    SettingsStore.setApkUpdateAvailable(this, true)
+                    SettingsStore.setApkUpdateLatestVersion(this, apkInfo.versionName)
+                    SettingsStore.setApkUpdateDownloadUrl(this, apkInfo.downloadUrl)
+                    if (prevLatest != apkInfo.versionName) {
+                        SettingsStore.clearApkUpdateDismissed(this)
+                    }
+                }
             } else {
-                SettingsStore.clearCoreUpdateState(this)
+                val latest = runCatching { com.lionray.vpn.util.VersionChecker.latestXray() }.getOrNull()
+                if (installed != "unknown" && latest != null &&
+                    com.lionray.vpn.util.VersionChecker.isNewer(installed, latest)
+                ) {
+                    SettingsStore.setCoreUpdateAvailable(this, true)
+                    SettingsStore.setCoreUpdateLatestVersion(this, latest)
+                } else {
+                    SettingsStore.clearCoreUpdateState(this)
+                }
             }
+
             runOnUiThread {
                 if (!isDestroyed && !isFinishing) {
                     setupUpdateCore()
