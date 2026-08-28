@@ -33,12 +33,14 @@ object XrayBridge {
     /**
      * Displayed Xray-core version for the About panel.
      *
-     * Update this number BY HAND every time you publish a release that ships a
-     * new core: keep it in sync with the libv2ray.aar that is bundled, so the
-     * About screen shows exactly what core is inside the APK. If it is left
-     * blank, the fresh binary version from the running core is reported instead.
+     * WARNING: this is DISPLAY-ONLY and can drift from the true core shipped in
+     * the APK. Leave it BLANK so About always shows the REAL version reported by
+     * the running libgojni binary (the honest value). Do NOT hardcode a number
+     * here just to make it "look newer" — the 2dust AAR tags do not reliably
+     * match the binary's internal Xray version, so a manual value misleads.
+     * Only set it if you have verified the actual bundled core version matches.
      */
-    const val BUNDLED_XRAY_VERSION = "26.8.20"
+    const val BUNDLED_XRAY_VERSION = ""
 
     /** TUN & VpnService MTU — must match the config's tun inbound MTU. */
     const val MTU = 1500
