@@ -49,6 +49,37 @@ jobs:
             "https://github.com/2dust/AndroidLibXrayLite/releases/download/${TAG}/libv2ray.aar"
           ls -la app/libs/libv2ray.aar
 
+      # The AndroidLibXrayLite release TAG does NOT reliably match the actual
+      # Xray-core version compiled into the binary (the v26.8.20 tag, for
+      # example, still shipped v26.3.27 internally). The source of truth is the
+      # Go module pseudo-version baked into libgojni.so, e.g.:
+      #   dep  github.com/xtls/xray-core  v1.260327.1-0.20260728075948-...  h1:...
+      # Extract that, and derive the friendly version (v1.YYMMDD.x => vYY.MM.DD).
+      - name: Detect real Xray core version
+        id: corever
+        run: |
+          set -e
+          mkdir -p /tmp/aar && unzip -o -q app/libs/libv2ray.aar -d /tmp/aar
+          SO=$(find /tmp/aar/jni -name 'libgojni.so' | head -n1)
+          echo "extracted: $SO"
+          LINE=$(tr '\0' '\n' < "$SO" | grep -a '^dep' | grep -a 'xtls/xray-core' | head -n1)
+          echo "buildinfo line: $LINE"
+          MODVER=$(echo "$LINE" | grep -aoE 'v[0-9]+(\.[0-9]+)+' | head -n1)
+          echo "module version: $MODVER"
+          if [ -n "$MODVER" ]; then
+            RAW=$(echo "$MODVER" | sed -E 's/^v[0-9]+\.//')
+            MAJ=$(echo "$RAW" | cut -d. -f1 | cut -c1-2)
+            MM=$(echo "$RAW" | cut -d. -f1 | cut -c3-4)
+            DD=$(echo "$RAW" | cut -d. -f1 | cut -c5-6)
+            PATCH=$(echo "$RAW" | cut -d. -f2)
+            VER="v${MAJ}.${MM}.${DD} (patch ${PATCH})"
+          else
+            VER="unknown"
+          fi
+          echo "REAL_XRAY=$VER"
+          echo "real_xray=$VER" >> "$GITHUB_OUTPUT"
+          echo "The APK will actually contain Xray core: $VER"
+
       - name: Set version
         run: |
           APP_VER="${{ github.event.inputs.app_version }}"
@@ -98,10 +129,15 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: app-v${{ github.event.inputs.app_version }}-core${{ github.event.inputs.xray_version }}
-          name: "LionRay VPN v${{ github.event.inputs.app_version }} (Xray ${{ github.event.inputs.xray_version }})"
+          name: "LionRay VPN v${{ github.event.inputs.app_version }} (Xray ${{ steps.corever.outputs.real_xray }})"
           body: |
             APP Version: ${{ github.event.inputs.app_version }}
-            Xray Core: ${{ github.event.inputs.xray_version }}
+            AAR Tag: ${{ github.event.inputs.xray_version }}
+            Real Xray Core in this APK: ${{ steps.corever.outputs.real_xray }}
+
+            > Note: the 2dust release tag may differ from the real core version
+            > compiled into the binary. The value above is scanned directly from
+            > libgojni.so and is the honest version this APK actually contains.
 
             Install: Download the APK and open it.
           files: LionRayVPN-v${{ github.event.inputs.app_version }}-core${{ github.event.inputs.xray_version }}.apk
