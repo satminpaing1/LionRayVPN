@@ -30,6 +30,16 @@ object XrayBridge {
 
     private const val TAG = "LionRay/Xray"
 
+    /**
+     * Displayed Xray-core version for the About panel.
+     *
+     * Update this number BY HAND every time you publish a release that ships a
+     * new core: keep it in sync with the libv2ray.aar that is bundled, so the
+     * About screen shows exactly what core is inside the APK. If it is left
+     * blank, the fresh binary version from the running core is reported instead.
+     */
+    const val BUNDLED_XRAY_VERSION = "26.8.20"
+
     /** TUN & VpnService MTU — must match the config's tun inbound MTU. */
     const val MTU = 1500
 
@@ -119,6 +129,9 @@ object XrayBridge {
     }
 
     fun version(): String {
+        // Manual display version wins — the operator keeps it in sync with the
+        // bundled aar so About always shows the correct core version.
+        if (BUNDLED_XRAY_VERSION.isNotBlank()) return BUNDLED_XRAY_VERSION
         if (!ensureEnv()) return "unknown"
         return try {
             Libv2ray.checkVersionX()
