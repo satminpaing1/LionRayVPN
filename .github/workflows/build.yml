@@ -88,7 +88,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add app/build.gradle.kts app/libs/libv2ray.aar
+          # libv2ray.aar is gitignored (downloaded fresh each run), so only the
+          # version bump in build.gradle.kts is committed back to main.
+          git add app/build.gradle.kts
           git commit -m "APP v${{ github.event.inputs.app_version }} | Xray v${{ github.event.inputs.xray_version }}" || true
           git push
 
