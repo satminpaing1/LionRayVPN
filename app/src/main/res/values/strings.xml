@@ -201,6 +201,7 @@
     <string name="update_available">new Xray Core v%1$s available — tap “Update Xray Core” below</string>
 
     <string name="update_core_title">⬇ Update Xray Core</string>
+    <string name="update_app_title">⬇ Update App (and Core) %1$s</string>
     <string name="update_now">Update</string>
     <string name="core_update_banner_title">Xray Core v%1$s available</string>
     <string name="core_update_banner_sub">Tap Update to install the latest core</string>

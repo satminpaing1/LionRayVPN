@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       xray_version:
-        description: 'Xray core version (e.g. 27.1.5)'
+        description: 'Xray core version as an AndroidLibXrayLite release tag (e.g. v26.8.20)'
         required: true
         type: string
       app_version:
@@ -35,22 +35,19 @@ jobs:
         run: yes | sdkmanager --licenses || true
 
       - name: Install build tools
-        run: sdkmanager "build-tools;35.0.0" "platforms;android-34"
+        run: sdkmanager "build-tools;35.0.0" "platforms;android-36"
 
-      - name: Download Xray core
-        env:
-          GH_TOKEN: ${{ github.token }}
+      # The Xray core runs IN-PROCESS via libgojni, which is compiled into the
+      # prebuilt libv2ray.aar. AndroidLibXrayLite publishes one AAR per Xray-core
+      # version, so downloading the AAR for the chosen tag is what actually
+      # updates the core that ships inside the APK.
+      - name: Download libv2ray for chosen Xray version
         run: |
-          TAG="v${{ github.event.inputs.xray_version }}"
-          echo "Downloading Xray ${TAG}..."
-          gh release download "$TAG" \
-            --repo XTLS/Xray-core \
-            --pattern "Xray-android-arm64-v8a.zip" \
-            --clobber
-          unzip -o Xray-android-arm64-v8a.zip -d xray-extracted
-          chmod +x xray-extracted/xray
-          cp xray-extracted/xray app/src/main/jniLibs/arm64-v8a/libxray.so
-          echo "Xray ${TAG} ready ($(stat -c%s app/src/main/jniLibs/arm64-v8a/libxray.so) bytes)"
+          TAG="${{ github.event.inputs.xray_version }}"
+          echo "Downloading libv2ray.aar for ${TAG}..."
+          curl -fL -o app/libs/libv2ray.aar \
+            "https://github.com/2dust/AndroidLibXrayLite/releases/download/${TAG}/libv2ray.aar"
+          ls -la app/libs/libv2ray.aar
 
       - name: Set version
         run: |
@@ -91,7 +88,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add app/build.gradle.kts app/src/main/jniLibs/arm64-v8a/libxray.so
+          git add app/build.gradle.kts app/libs/libv2ray.aar
           git commit -m "APP v${{ github.event.inputs.app_version }} | Xray v${{ github.event.inputs.xray_version }}" || true
           git push
 
@@ -102,7 +99,7 @@ jobs:
           name: "LionRay VPN v${{ github.event.inputs.app_version }} (Xray ${{ github.event.inputs.xray_version }})"
           body: |
             APP Version: ${{ github.event.inputs.app_version }}
-            Xray Core: v${{ github.event.inputs.xray_version }}
+            Xray Core: ${{ github.event.inputs.xray_version }}
 
             Install: Download the APK and open it.
           files: LionRayVPN-v${{ github.event.inputs.app_version }}-core${{ github.event.inputs.xray_version }}.apk

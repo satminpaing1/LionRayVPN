@@ -14,7 +14,8 @@ android {
         versionCode = 10100
         versionName = "1.1"
         ndk {
-            abiFilters += listOf("arm64-v8a")
+            // libgojni (libv2ray.aar) ships every ABI → one APK for all phones.
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
         }
     }
 
@@ -53,8 +54,10 @@ android {
 }
 
 dependencies {
-    // Xray-core now ships as an external executable (jniLibs/libxray.so),
-    // updatable in-app via Settings -> Update Core. No AAR needed anymore.
+    // Xray-core now runs IN-PROCESS via libgojni (libv2ray.aar), which bundles
+    // libgojni.so for arm64-v8a, armeabi-v7a, x86 and x86_64 — so a single
+    // universal APK works on every phone. Core versions ship with the APK.
+    implementation(files("libs/libv2ray.aar"))
 
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")

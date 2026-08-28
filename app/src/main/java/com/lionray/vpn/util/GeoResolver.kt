@@ -3,7 +3,7 @@ package com.lionray.vpn.util
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import com.lionray.vpn.core.HevTunnel
+import com.lionray.vpn.core.XrayBridge
 import com.lionray.vpn.data.ProfileStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -231,7 +231,7 @@ object GeoResolver {
     private fun exitCountryViaSocks(): String? = runCatching {
         val socks = java.net.Proxy(
             java.net.Proxy.Type.SOCKS,
-            java.net.InetSocketAddress("127.0.0.1", HevTunnel.SOCKS_PORT)
+            java.net.InetSocketAddress("127.0.0.1", XrayBridge.SOCKS_PORT)
         )
         val conn = URL("http://ip-api.com/json/?fields=countryCode")
             .openConnection(socks) as HttpURLConnection

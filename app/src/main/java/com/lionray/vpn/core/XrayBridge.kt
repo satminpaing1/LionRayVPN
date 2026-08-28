@@ -1,39 +1,59 @@
 package com.lionray.vpn.core
 
 import android.content.Context
-import android.os.Build
+import android.provider.Settings
 import android.util.Log
+import go.Seq
 import java.io.File
+import java.util.concurrent.atomic.AtomicLong
+import libv2ray.CoreCallbackHandler
+import libv2ray.CoreController
+import libv2ray.Libv2ray
 
 /**
- * Bridge to an EXTERNAL Xray-core executable process.
+ * Bridge to Xray-core embedded IN-PROCESS via libgojni (libv2ray.aar).
  *
- * Binary resolution order:
- *   1. nativeLibraryDir/libxray.so – core bundled in jniLibs (extracted on
- *        install; exec is permitted there on every Android version).
- *   2. filesDir/xray/xray          – core downloaded via "Update Core".
+ * This is the same proven architecture used by v2rayNG:
+ *   Android apps -> VpnService TUN fd -> Xray-core "tun" inbound (fd wired in
+ *   by startLoop) -> routing rules -> VLESS/proxy outbound -> internet.
  *
- * Flow:
- *   hev-socks5-tunnel (in-process, TUN fd) -> SOCKS 127.0.0.1:<port> -> xray process
+ * No separate hev-socks5-tunnel process and no SOCKS hop are needed: the tun
+ * inbound consumes the VpnService file descriptor handed to [startLoop].
+ * A local SOCKS inbound (127.0.0.1:[SOCKS_PORT]) is still part of the config
+ * so in-app IP/country checks can look at the tunnel's real exit (the app's
+ * own sockets bypass the TUN via addDisallowedApplication).
+ *
+ * libgojni ships every ABI (arm64-v8a, armeabi-v7a, x86, x86_64), so a single
+ * APK installs & runs on 32-bit and 64-bit phones alike.
  */
 object XrayBridge {
 
     private const val TAG = "LionRay/Xray"
 
+    /** TUN & VpnService MTU — must match the config's tun inbound MTU. */
+    const val MTU = 1500
+
+    /** Internal TUN interface addresses (used only as the tunnel gateway). */
+    const val VPN_IPV4 = "26.26.26.1"
+    const val VPN_IPV6 = "fdfe:dcba:9876::1"
+
+    /** Local auxiliary SOCKS5 inbound kept for in-app exit-IP checks. */
+    const val SOCKS_PORT = 10808
+
     interface StatusListener {
-        /** level -1 => core stopped itself */
+        /** level -1 => core stopped itself. */
         fun onStatus(level: Int, msg: String)
     }
 
     private val lock = Any()
-    private var process: Process? = null
     @Volatile private var appContext: Context? = null
+    @Volatile private var envReady = false
+    private var controller: CoreController? = null
 
-    // counts connections the router sent to the "block" outbound (ad blocker)
-    private val blocked = java.util.concurrent.atomic.AtomicLong(0)
+    /** Counts traffic the router sent to the "block" outbound (ad blocker) — bytes/session. */
+    private val blocked = AtomicLong(0)
 
     fun blockedCount(): Long = blocked.get()
-
     fun resetBlocked() = blocked.set(0)
 
     @Volatile
@@ -47,127 +67,94 @@ object XrayBridge {
     var isRunning: Boolean = false
         private set
 
+    /** Lightweight: only stores the context. Heavy Go/lib init happens lazily on first start(). */
     fun init(context: Context) {
         appContext = context.applicationContext
-        runCatching { coreWorkDir().mkdirs() }
-
-        // Purge stale filesDir copy on Android 10+ (exec blocked by SELinux)
-        if (Build.VERSION.SDK_INT >= 29) {
-            val dl = File(appContext!!.filesDir, "xray/xray")
-            if (dl.exists()) runCatching { dl.delete() }
-        }
-
-        val prefs = appContext!!.getSharedPreferences("xray_bridge", 0)
-        val savedCode = prefs.getInt("version_code", 0)
-        val currentCode = try {
-            appContext!!.packageManager.getPackageInfo(appContext!!.packageName, 0)
-                .let { if (Build.VERSION.SDK_INT >= 28) it.longVersionCode.toInt() else @Suppress("DEPRECATION") it.versionCode }
-        } catch (_: Throwable) { 0 }
-        if (currentCode > 0 && currentCode != savedCode) {
-            prefs.edit().putInt("version_code", currentCode).commit()
-        }
     }
 
-    fun coreWorkDir(): File =
-        File(appContext!!.filesDir, "xray")
-
-    /** On Android 10+ the updated core is written to nativeLibraryDir/libxray.so
-     *  (only executable path). On older devices filesDir/xray/xray is used. */
-    fun activeBinary(): File {
-        val dl = File(appContext!!.filesDir, "xray/xray")
-        if (dl.exists() && dl.canExecute() && dl.length() > 10_000_000L) return dl
-        val bundled = File(appContext!!.applicationInfo.nativeLibraryDir, "libxray.so")
-        if (bundled.exists() && bundled.length() > 10_000_000L) return bundled
-        return bundled
-    }
-
-    /** true when a user-downloaded core is present (filesDir or nativeLibraryDir). */
-    fun hasUpdatedCore(): Boolean {
-        val dl = File(appContext!!.filesDir, "xray/xray")
-        return dl.exists() && dl.length() > 10_000_000L
-    }
-
-    private val VER_RE = Regex("""(\d+\.\d+\.\d+)""")
-
-    fun version(): String = try {
-        val bin = activeBinary()
-        if (!bin.exists()) "missing"
-        else ProcessBuilder(bin.absolutePath, "version")
-            .redirectErrorStream(true)
-            .start()
-            .inputStream.bufferedReader().useLines { lines ->
-                lines.mapNotNull { VER_RE.find(it)?.groupValues?.get(1) }
-                    .firstOrNull()
-                    ?: "unknown"
+    private fun ensureEnv(): Boolean {
+        if (envReady) return true
+        synchronized(lock) {
+            if (envReady) return true
+            val ctx = appContext ?: return false
+            return try {
+                val assetDir = File(ctx.filesDir, "xray-assets").apply { mkdirs() }
+                copyAssets(ctx, assetDir)
+                // XUDP base key must decode to exactly 32 bytes. Xray base64-
+                // decodes the env value (xray.xudp.basekey) and rejects anything
+                // that isn't 32 bytes. v2rayNG's exact recipe: zero-pad the
+                // Android ID's UTF-8 bytes to 32, then URL-safe unpadded base64.
+                val androidId = runCatching {
+                    Settings.Secure.getString(ctx.contentResolver, Settings.Secure.ANDROID_ID)
+                }.getOrNull()?.ifEmpty { null } ?: "lionrayvpn"
+                val deviceId = android.util.Base64.encodeToString(
+                    androidId.toByteArray(Charsets.UTF_8).copyOf(32),
+                    android.util.Base64.NO_PADDING or android.util.Base64.URL_SAFE
+                )
+                Seq.setContext(ctx)
+                Libv2ray.initCoreEnv(assetDir.absolutePath, deviceId)
+                envReady = true
+                true
+            } catch (t: Throwable) {
+                lastError = t.message ?: t.toString()
+                Log.e(TAG, "env init failed", t)
+                false
             }
-    } catch (t: Throwable) {
-        Log.e(TAG, "version check failed", t)
-        "unknown"
+        }
+    }
+
+    /** Asset dir holds the geoip/geosite data the core may need at runtime. */
+    private fun copyAssets(ctx: Context, dir: File) {
+        listOf("geoip.dat", "geosite.dat", "geoip-only-cn-private.dat").forEach { name ->
+            val dest = File(dir, name)
+            if (dest.exists() && dest.length() > 0) return@forEach
+            try {
+                ctx.assets.open(name).use { input ->
+                    dest.outputStream().use { input.copyTo(it) }
+                }
+            } catch (t: Throwable) {
+                Log.w(TAG, "asset copy skipped: $name", t)
+            }
+        }
+    }
+
+    fun version(): String {
+        if (!ensureEnv()) return "unknown"
+        return try {
+            Libv2ray.checkVersionX()
+        } catch (t: Throwable) {
+            Log.e(TAG, "version check failed", t)
+            "unknown"
+        }
     }
 
     /**
-     * Starts Xray-core as a detached process with [configJson].
-     * [tunFd] is unused here (the in-process hev tunnel owns the fd).
+     * Starts the in-process Xray core with [configJson] and wires the
+     * VpnService [tunFd] into the config's "tun" inbound.
      */
     fun start(configJson: String, tunFd: Int): Boolean {
         synchronized(lock) {
             lastError = ""
             if (isRunning) return true
-            val ctx = appContext ?: return false
-            val bin = activeBinary()
-            if (!bin.exists()) {
-                lastError = "Xray binary not found at ${bin.absolutePath}"
-                return false
-            }
+            if (!ensureEnv()) return false
             return try {
-                val work = coreWorkDir().apply { mkdirs() }
-                val cfgFile = File(work, "config.json")
-                cfgFile.writeText(configJson)
-                runCatching { bin.setExecutable(true, false) }
-
-                val pb = ProcessBuilder(bin.absolutePath, "run", "-c", cfgFile.absolutePath)
-                    .directory(work)
-                    .redirectErrorStream(true)
-                pb.environment()["XRAY_LOCATION_ASSET"] = work.absolutePath
-                val proc = pb.start()
-                process = proc
-
-                Thread {
-                    try {
-                        proc.inputStream.bufferedReader().useLines { lines ->
-                            for (line in lines) {
-                                Log.i(TAG, "core: $line")
-                                // xray info log: "accepted tcp:host:443 [socks-in -> block]"
-                                if (line.contains("-> block") || line.contains("[block]")) {
-                                    blocked.incrementAndGet()
-                                }
-                                if (line.contains("Failed to start", true) ||
-                                    line.contains("core: failed", true)
-                                ) listener?.onStatus(2, line.take(300))
-                            }
-                        }
-                    } catch (_: Throwable) {
-                    }
-                    if (proc.waitFor() != 0 && isRunning) {
-                        isRunning = false
-                        listener?.onStatus(-1, "core exited")
-                    }
-                }.apply { isDaemon = true }.start()
-
-                // give the core a moment; a config error kills it instantly
-                Thread.sleep(600)
-                if (proc.isAlive) {
-                    isRunning = true
-                    true
-                } else {
-                    lastError = "Xray exited immediately (bad config?)"
-                    process = null
-                    false
+                val handler = object : CoreCallbackHandler {
+                    override fun onEmitStatus(level: Long, msg: String?): Long = 0
+                    override fun startup(): Long = 0
+                    override fun shutdown(): Long = 0
                 }
+                val c = Libv2ray.newCoreController(handler)
+                c.startLoop(configJson, tunFd)
+                controller = c
+                isRunning = c.isRunning
+                blocked.set(0)
+                if (!isRunning) lastError = "core failed to start"
+                isRunning
             } catch (t: Throwable) {
                 lastError = t.message ?: t.toString()
                 Log.e(TAG, "start failed", t)
-                process = null
+                controller = null
+                isRunning = false
                 false
             }
         }
@@ -175,18 +162,40 @@ object XrayBridge {
 
     fun stop() {
         synchronized(lock) {
-            val proc = process ?: return
-            process = null
-            runCatching { proc.destroy() }
-            Thread {
-                try {
-                    if (!proc.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)) {
-                        proc.destroyForcibly()
-                    }
-                } catch (_: Throwable) {
-                }
-            }.start()
+            val c = controller ?: return
+            controller = null
             isRunning = false
+            runCatching { c.stopLoop() }
+        }
+    }
+
+    /**
+     * Bytes transferred since the previous query, as [down, up].
+     * Values come from the core's outbound stats counters (all outbounds:
+     * proxy + direct + block), reset on each read by the core.
+     */
+    fun stats(): LongArray? {
+        val c = controller ?: return null
+        if (!c.isRunning) return null
+        return try {
+            val payload = c.queryAllOutboundTrafficStats()
+            var down = 0L
+            var up = 0L
+            payload.split(';').forEach { entry ->
+                if (entry.isBlank()) return@forEach
+                val parts = entry.split(',', limit = 3)
+                if (parts.size != 3) return@forEach
+                val value = parts[2].toLongOrNull() ?: return@forEach
+                when (parts[1]) {
+                    "downlink" -> down += value
+                    "uplink" -> up += value
+                }
+                if (parts[0] == "block") blocked.addAndGet(value)
+            }
+            longArrayOf(down, up)
+        } catch (t: Throwable) {
+            Log.e(TAG, "stats failed", t)
+            null
         }
     }
 }

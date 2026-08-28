@@ -7,14 +7,15 @@ import org.json.JSONObject
 
 /**
  * Builds the Xray-core JSON configuration:
- *  - inbound "socks": local proxy on 127.0.0.1 that hev-socks5-tunnel feeds
- *    with all captured device traffic (system-wide routing happens in
- *    LionRayVpnService + HevTunnel, not inside the core)
+ *  - inbound "tun": consumes the VpnService file descriptor passed to
+ *    Libv2ray startLoop — this is how the WHOLE device's traffic enters the
+ *    in-process core (no external hev-socks5-tunnel process needed).
+ *  - inbound "socks": local proxy on 127.0.0.1 kept only so in-app IP/country
+ *    checks (ExitIpChecker / GeoResolver) can observe the tunnel's real exit.
  *  - outbound "proxy": the selected VLESS server (TLS / REALITY / transports)
- *  - routing: depends on the selected mode:
- *      global     -> private ranges direct, everything else proxied
- *      split_cn   -> CN domains (+private, +domestic DNS) direct, rest proxied
- *      direct_all -> everything direct (diagnostic, tunnel acts as pass-through)
+ *  - routing: private ranges direct, everything else through the proxy.
+ *  - stats + policy: enable per-outbound byte counters used for the speed /
+ *    usage read-out via CoreController.queryAllOutboundTrafficStats().
  */
 object XrayConfigBuilder {
 
@@ -44,21 +45,30 @@ object XrayConfigBuilder {
 
     fun build(
         p: ServerProfile,
-        socksPort: Int = 10808,
+        socksPort: Int = XrayBridge.SOCKS_PORT,
         routingMode: String = SettingsStore.MODE_GLOBAL,
         dnsDirectIps: List<String> = emptyList()
     ): String {
         val root = JSONObject()
-        // info level needed so blocked-connection lines appear (ad counter)
+        root.put("log", JSONObject().put("loglevel", "warning"))
+
+        // Traffic byte counters for the speed / usage read-out. The in-process
+        // core resets these on each query, so stats() returns per-interval deltas.
+        root.put("stats", JSONObject())
         root.put(
-            "log",
-            JSONObject().put("loglevel", if (adBlock) "info" else "warning")
+            "policy",
+            JSONObject().put(
+                "system",
+                JSONObject()
+                    .put("statsOutboundUplink", true)
+                    .put("statsOutboundDownlink", true)
+            )
         )
 
         // ---------------- inbounds ----------------
         val sniffing = JSONObject()
             .put("enabled", true)
-            .put("destOverride", JSONArray(listOf("http", "tls")))
+            .put("destOverride", JSONArray(listOf("http", "tls", "quic")))
             .put("routeOnly", false)
 
         val socksInbound = JSONObject()
@@ -68,11 +78,24 @@ object XrayConfigBuilder {
             .put("protocol", "socks")
             .put(
                 "settings",
-                JSONObject().put("auth", "noauth").put("udp", true)
+                JSONObject().put("auth", "noauth").put("udp", true).put("userLevel", 8)
             )
             .put("sniffing", sniffing)
 
-        root.put("inbounds", JSONArray().put(socksInbound))
+        // The fd handed to Libv2ray.startLoop is wired into this inbound.
+        val tunInbound = JSONObject()
+            .put("tag", "tun")
+            .put("protocol", "tun")
+            .put(
+                "settings",
+                JSONObject()
+                    .put("name", "xray0")
+                    .put("MTU", XrayBridge.MTU)
+                    .put("userLevel", 8)
+            )
+            .put("sniffing", sniffing)
+
+        root.put("inbounds", JSONArray().put(socksInbound).put(tunInbound))
 
         // ---------------- outbounds ----------------
         val proxy: JSONObject = when (p.protocol.lowercase()) {

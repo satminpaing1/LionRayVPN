@@ -16,7 +16,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import com.lionray.vpn.LionRayApp
 import com.lionray.vpn.R
-import com.lionray.vpn.core.HevTunnel
 import com.lionray.vpn.core.Speed
 import com.lionray.vpn.core.VpnBus
 import com.lionray.vpn.core.VpnState
@@ -52,7 +51,7 @@ class LionRayVpnService : VpnService() {
         const val ACTION_STOP = "com.lionray.vpn.action.STOP"
         private const val NOTIFICATION_ID = 1001
         private const val TAG = "LionRay/Vpn"
-        private const val VPN_MTU = HevTunnel.MTU
+        private const val VPN_MTU = XrayBridge.MTU
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -122,18 +121,19 @@ class LionRayVpnService : VpnService() {
     }
 
     /**
-     * Re-launches ONLY the Xray process with the same config — the TUN and
-     * hev tunnel survive the underlying network switch, so new outbound
-     * sockets simply bind to the fresh network.
+     * Re-launches ONLY the in-process core with the same config — the TUN fd
+     * survives the underlying network switch, so new outbound sockets simply
+     * bind to the fresh network.
      */
     private fun restartCoreOnly(attempt: Int) {
         val cfg = lastConfig ?: return
         if (stopping.get()) return
         if (VpnBus.state.value != VpnState.CONNECTED) return
+        val fd = tunInterface?.fd ?: 0
         scope.launch(Dispatchers.IO) {
             runCatching { XrayBridge.stop() }
             delay(400)
-            val ok = XrayBridge.start(cfg, 0)
+            val ok = XrayBridge.start(cfg, fd)
             withContext(Dispatchers.Main) {
                 if (ok && !stopping.get()) {
                     reconnectAttempts = 0
@@ -249,8 +249,8 @@ class LionRayVpnService : VpnService() {
                 val p = ProfileStore.activeProfile() ?: break
 
                 // active traffic proves liveness — reset & skip the probe
-                val s = HevTunnel.stats()
-                val total = s?.let { it[1] + it[3] } ?: -1L
+                val s = XrayBridge.stats()
+                val total = s?.let { it[0] + it[1] } ?: -1L
                 if (total > 0 && lastTotal > 0 && total - lastTotal > 65536) {
                     fails = 0
                     lastTotal = total
@@ -349,7 +349,7 @@ class LionRayVpnService : VpnService() {
             XrayConfigBuilder.voipViaProxy = SettingsStore.voipViaVpn(applicationContext)
             XrayConfigBuilder.build(
                 profile,
-                HevTunnel.SOCKS_PORT,
+                XrayBridge.SOCKS_PORT,
                 mode,
                 if (dns.domestic) dns.servers else emptyList()
             )
@@ -362,19 +362,11 @@ class LionRayVpnService : VpnService() {
         lastConfig = config
         armNetworkWatcher()
         val ok = withContext(Dispatchers.IO) {
-            XrayBridge.start(config, 0)
+            // tun inbound of the in-process core consumes this fd directly
+            XrayBridge.start(config, tunInterface!!.fd)
         }
         if (!ok) {
             fail(getString(R.string.err_start_failed) + "\n" + XrayBridge.lastError)
-            return
-        }
-
-        // Route the TUN into the local Xray SOCKS inbound
-        val hevOk = withContext(Dispatchers.IO) {
-            HevTunnel.start(applicationContext, pfd)
-        }
-        if (!hevOk) {
-            fail(getString(R.string.err_tun2socks) + "\n" + HevTunnel.lastError)
             return
         }
 
@@ -390,34 +382,35 @@ class LionRayVpnService : VpnService() {
     private var speedJob: kotlinx.coroutines.Job? = null
 
     /**
-     * Samples the hev tunnel counters every second and publishes the
-     * throughput to [VpnBus.speed]. In the stats array tx = upload
-     * (device -> internet) and rx = download (internet -> device).
+     * Samples the in-process core's traffic counters every second and
+     * publishes throughput to [VpnBus.speed]. Each query returns the bytes
+     * transferred since the previous query ([down, up]).
      */
     private fun startSpeedPolling() {
         speedJob?.cancel()
         XrayBridge.resetBlocked()
         VpnBus.blockedCount.value = 0L
         speedJob = scope.launch {
-            var lastTx = -1L
-            var lastRx = -1L
+            var sessionDown = 0L
+            var sessionUp = 0L
             var lastMs = 0L
             while (VpnBus.state.value == VpnState.CONNECTED) {
-                val s = HevTunnel.stats()
-                if (s != null && s.size >= 4) {
+                val s = XrayBridge.stats()
+                if (s != null && s.size >= 2) {
                     val now = System.currentTimeMillis()
-                    if (lastTx >= 0 && now > lastMs) {
-                        val dt = (now - lastMs).coerceAtLeast(1)
-                        val down = ((s[3] - lastRx).coerceAtLeast(0)) * 1000 / dt
-                        val up = ((s[1] - lastTx).coerceAtLeast(0)) * 1000 / dt
-                        VpnBus.speed.value = Speed(down, up)
+                    val dt = (now - lastMs).coerceAtLeast(1)
+                    if (lastMs > 0) {
+                        VpnBus.speed.value = Speed(
+                            downBps = s[0] * 1000 / dt,
+                            upBps = s[1] * 1000 / dt
+                        )
                     }
-                    lastTx = s[1]
-                    lastRx = s[3]
                     lastMs = now
+                    sessionDown += s[0]
+                    sessionUp += s[1]
                     // cumulative session totals for the Home data-usage row
                     VpnBus.usage.value =
-                        com.lionray.vpn.core.Usage(downBytes = s[3], upBytes = s[1])
+                        com.lionray.vpn.core.Usage(downBytes = sessionDown, upBytes = sessionUp)
                 }
                 VpnBus.blockedCount.value = XrayBridge.blockedCount()
                 delay(1000)
@@ -511,7 +504,6 @@ class LionRayVpnService : VpnService() {
     }
 
     private fun teardownCore() {
-        HevTunnel.stop()
         runCatching { XrayBridge.stop() }
         runCatching { tunInterface?.close() }
         tunInterface = null

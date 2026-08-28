@@ -124,6 +124,9 @@ class SettingsActivity : AppCompatActivity() {
         }.start()
     }
 
+    // The core is compiled into libv2ray.aar (libgojni) and ships with the
+    // APK, so a "core update" IS an app update. On every supported device
+    // (minSdk 29 = Android 10+) this drives the single GitHub APK-update path.
     private fun setupUpdateCore() {
         val btn = findViewById<android.widget.TextView>(R.id.btnUpdateCore)
         val panel = findViewById<android.view.View>(R.id.coreProgressPanel)
@@ -135,26 +138,15 @@ class SettingsActivity : AppCompatActivity() {
         val dot = findViewById<android.view.View>(R.id.viewUpdateDot)
 
         val installedVer = cachedInstalledVersion.ifEmpty { "…" }
-
-        val hasUpdate: Boolean
-        val latestVer: String
-
-        if (android.os.Build.VERSION.SDK_INT >= 29) {
-            hasUpdate = SettingsStore.apkUpdateAvailable(this)
-            latestVer = SettingsStore.apkUpdateLatestVersion(this)
-        } else {
-            hasUpdate = SettingsStore.coreUpdateAvailable(this)
-            latestVer = SettingsStore.coreUpdateLatestVersion(this)
-        }
+        val hasUpdate = SettingsStore.apkUpdateAvailable(this)
+        val appVer = SettingsStore.apkUpdateLatestVersion(this)
 
         if (hasUpdate) {
             dot.visibility = android.view.View.VISIBLE
-            btn.text = if (android.os.Build.VERSION.SDK_INT >= 29)
-                getString(R.string.update_core_title)
-            else getString(R.string.update_core_title)
+            btn.text = getString(R.string.update_app_title, appVer.ifEmpty { "" })
         } else {
             dot.visibility = android.view.View.GONE
-            btn.text = getString(R.string.xray_core_version, installedVer) + "  ✓"
+            btn.text = getString(R.string.update_app_title, "") + "  ✓"
         }
 
         fun progress(p: Int) {
@@ -174,59 +166,30 @@ class SettingsActivity : AppCompatActivity() {
                 toast(getString(R.string.xray_core_version, installedVer))
                 return@setOnClickListener
             }
-            if (android.os.Build.VERSION.SDK_INT >= 29) {
-                btn.isEnabled = false
-                panel.visibility = android.view.View.VISIBLE
-                progress(-1)
-                val storedUrl = SettingsStore.apkUpdateDownloadUrl(this)
-                Thread {
-                    val result = runCatching {
-                        val url = storedUrl.ifEmpty {
-                            com.lionray.vpn.util.ApkUpdater.fetchLatestApk()?.downloadUrl
-                                ?: throw Exception("could not find APK on GitHub")
-                        }
-                        com.lionray.vpn.util.ApkUpdater.downloadAndInstall(
-                            this, url
-                        ) { p -> runOnUiThread { progress(p) } }
-                    }
-                    runOnUiThread {
-                        if (isDestroyed || isFinishing) return@runOnUiThread
-                        btn.isEnabled = true
-                        panel.visibility = android.view.View.GONE
-                        result.fold(
-                            onSuccess = { file ->
-                                launchInstall(file)
-                                toast(R.string.apk_downloaded)
-                            },
-                            onFailure = { toast(getString(R.string.apk_update_fail, it.message ?: "")) }
-                        )
-                    }
-                }.start()
-                return@setOnClickListener
-            }
             btn.isEnabled = false
             panel.visibility = android.view.View.VISIBLE
             progress(-1)
+            val storedUrl = SettingsStore.apkUpdateDownloadUrl(this)
             Thread {
                 val result = runCatching {
-                    com.lionray.vpn.util.CoreUpdater.downloadAndInstall(this) { p ->
-                        runOnUiThread { progress(p) }
+                    val url = storedUrl.ifEmpty {
+                        com.lionray.vpn.util.ApkUpdater.fetchLatestApk()?.downloadUrl
+                            ?: throw Exception("could not find APK on GitHub")
                     }
+                    com.lionray.vpn.util.ApkUpdater.downloadAndInstall(
+                        this, url
+                    ) { p -> runOnUiThread { progress(p) } }
                 }
                 runOnUiThread {
                     if (isDestroyed || isFinishing) return@runOnUiThread
                     btn.isEnabled = true
                     panel.visibility = android.view.View.GONE
                     result.fold(
-                        onSuccess = {
-                            findViewById<android.widget.TextView>(R.id.tvXrayVersion).text =
-                                getString(R.string.xray_core_version, it.version)
-                            dot.visibility = android.view.View.GONE
-                            SettingsStore.clearCoreUpdateState(this@SettingsActivity)
-                            btn.text = getString(R.string.xray_core_version, it.version) + "  ✓"
-                            toast(getString(R.string.core_updated_ok, it.version))
+                        onSuccess = { file ->
+                            launchInstall(file)
+                            toast(R.string.apk_downloaded)
                         },
-                        onFailure = { toast(getString(R.string.core_update_fail, it.message ?: "")) }
+                        onFailure = { toast(getString(R.string.apk_update_fail, it.message ?: "")) }
                     )
                 }
             }.start()

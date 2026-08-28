@@ -42,7 +42,7 @@ import com.lionray.vpn.data.SubStore
 import com.lionray.vpn.data.VlessParser
 import com.lionray.vpn.databinding.ActivityMainBinding
 import com.lionray.vpn.service.LionRayVpnService
-import com.lionray.vpn.core.HevTunnel
+import com.lionray.vpn.core.XrayBridge
 import com.lionray.vpn.util.ExitIpChecker
 import com.lionray.vpn.util.PingEngine
 import com.lionray.vpn.util.QrUtil
@@ -752,7 +752,7 @@ class MainActivity : AppCompatActivity() {
         binding.tvExitCountry.text = ""
         exitIpJob = lifecycleScope.launch {
             val info = withContext(Dispatchers.IO) {
-                ExitIpChecker.fetch(HevTunnel.SOCKS_PORT)
+                ExitIpChecker.fetch(XrayBridge.SOCKS_PORT)
             }
             if (isDestroyed || isFinishing || VpnBus.state.value != VpnState.CONNECTED) return@launch
             if (info == null) {
