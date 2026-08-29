@@ -308,10 +308,6 @@ object XrayConfigBuilder {
                 val tls = JSONObject()
                     .put("serverName", p.sni.ifBlank { p.host.ifBlank { p.address } })
                     .put("show", false)
-                // Xray 26 removed "allowInsecure"; the replacement for
-                // skip-cert-verify is verifyPeerCertByName. Never emit the old
-                // field or the config fails to parse.
-                if (p.allowInsecure) tls.put("verifyPeerCertByName", false)
                 if (p.fingerprint.isNotBlank()) tls.put("fingerprint", p.fingerprint)
                 if (p.alpn.isNotBlank()) {
                     val list = p.alpn.split(",").mapNotNull { it.trim().takeIf(String::isNotEmpty) }
