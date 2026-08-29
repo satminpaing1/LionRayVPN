@@ -190,13 +190,12 @@ object XrayBridge {
     private fun dumpError(msg: String) {
         runCatching {
             val dir = appContext?.getExternalFilesDir(null) ?: return
-            val dev = android.os.Build
             val abi = android.os.Build.SUPPORTED_ABIS?.joinToString(",") ?: "?"
             val header = buildString {
                 append("time: ")
                 append(java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date()))
-                append("\nmodel: ").append(dev.MANUFACTURER).append(" ").append(dev.MODEL)
-                append("\nandroid: ").append(dev.VERSION.RELEASE).append(" (SDK ").append(dev.VERSION.SDK_INT).append(")")
+                append("\nmodel: ").append(android.os.Build.MANUFACTURER).append(" ").append(android.os.Build.MODEL)
+                append("\nandroid: ").append(android.os.Build.VERSION.RELEASE).append(" (SDK ").append(android.os.Build.VERSION.SDK_INT).append(")")
                 append("\nabi: ").append(abi)
                 append("\ncore: ").append(BUNDLED_XRAY_VERSION.ifBlank { "unknown" })
             }
