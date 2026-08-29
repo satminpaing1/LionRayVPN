@@ -221,7 +221,7 @@ object XrayBridge {
         val c = controller ?: return null
         if (!c.isRunning) return null
         return try {
-            val payload = c.queryAllOutboundTrafficStats()
+            val payload = c.queryStats()
             var down = 0L
             var up = 0L
             payload.split(';').forEach { entry ->
