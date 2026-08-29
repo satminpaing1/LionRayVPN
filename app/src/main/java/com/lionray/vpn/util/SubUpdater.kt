@@ -110,12 +110,15 @@ object SubUpdater {
             .distinctBy { it.toShareUri() }
     }
 
-    /** Plain-text / base64 payload: one vless:// link per line. */
+    /** Plain-text / base64 payload: vless/trojan/ss links, one per line. */
     private fun parseVlessLines(text: String, subId: Long): List<ServerProfile> =
         text.lines()
             .mapNotNull { line ->
                 val l = line.trim()
-                if (!l.startsWith("vless://")) return@mapNotNull null
+                if (!(l.startsWith("vless://") ||
+                        l.startsWith("trojan://") ||
+                        l.startsWith("ss://"))
+                ) return@mapNotNull null
                 val uri = VlessParser.extractUri(l) ?: return@mapNotNull null
                 VlessParser.parse(uri)
             }

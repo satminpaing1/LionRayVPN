@@ -162,12 +162,6 @@ object VlessParser {
     // --------------------------------------------------------------- ss
 
     private fun parseSs(rawIn: String): ServerProfile? = runCatching {
-        // plugin-carrying links (obfs / v2ray-plugin) cannot work with Xray
-        if (rawIn.contains("plugin=", ignoreCase = true)) {
-            val pv = rawIn.substringAfter("plugin=", "").substringBefore('&').trim()
-            if (pv.isNotBlank() && !pv.equals("none", true)) return@runCatching null
-        }
-
         val name = Uri.decode(rawIn.substringAfter('#', ""))
         val main = rawIn.removePrefix("ss://").substringBefore('#').substringBefore('?')
 
@@ -201,6 +195,51 @@ object VlessParser {
 
         if (host.isBlank() || method.isBlank() || password.isBlank()) return@runCatching null
 
+        // Parse SIP003 plugin options, e.g.
+        //   plugin=v2ray-plugin;mode=websocket;host=...;path=/;tls;mux=0
+        val plugin = rawIn
+            .substringAfter("plugin=", "")
+            .substringBefore('&')
+            .trim()
+            .let { Uri.decode(it) }
+        val isWsPlugin = plugin.contains("mode=websocket", ignoreCase = true)
+        val pluginHasTls = Regex("(^|;)\\s*tls\\b", RegexOption.IGNORE_CASE)
+            .containsMatchIn(plugin)
+        val pluginHost = Regex("host=([^;]+)").find(plugin)
+            ?.groupValues?.get(1)?.trim().orEmpty()
+        val pluginPathRaw = Regex("path=([^;]+)").find(plugin)
+            ?.groupValues?.get(1)?.trim()?.let { Uri.decode(it) }.orEmpty()
+        // The "?enc=..." suffix is an EdgeTunnel marker, not part of the WS path.
+        val wsPath = pluginPathRaw.substringBefore("?enc=").ifBlank { "/" }
+
+        // EdgeTunnel / Cloudflare-Workers nodes publish "ss://" links whose
+        // password is actually a VLESS UUID carried over WebSocket+TLS. Those
+        // workers implement VLESS, not real Shadowsocks, so build a VLESS outbound.
+        if (isWsPlugin && pluginHasTls && REGEX_UUID.matches(password)) {
+            val customHost = pluginHost.ifBlank { host }
+            return@runCatching ServerProfile(
+                id = 0L,
+                protocol = "vless",
+                remark = name,
+                address = host,
+                port = port,
+                uuid = password,
+                encryption = "none",
+                network = "ws",
+                host = customHost,
+                path = wsPath,
+                security = "tls",
+                sni = customHost,
+                fingerprint = "chrome"
+            )
+        }
+
+        // Any non-websocket plugin (obfs-local, simple-tls, ...) is unsupported
+        // by Xray — reject it the same way a plain IP-filter would.
+        val unsupportedPlugin = rawIn.contains("plugin=", ignoreCase = true) &&
+            plugin.isNotBlank() && !plugin.equals("none", true) && !isWsPlugin
+        if (unsupportedPlugin) return@runCatching null
+
         ServerProfile(
             id = 0L,
             protocol = "ss",
@@ -209,10 +248,18 @@ object VlessParser {
             port = port,
             uuid = password,
             encryption = method.trim().lowercase(),
-            network = "tcp",
-            security = "none"
+            network = if (isWsPlugin) "ws" else "tcp",
+            host = pluginHost,
+            path = if (isWsPlugin) wsPath else "",
+            security = if (pluginHasTls) "tls" else "none",
+            sni = if (pluginHasTls) (pluginHost.ifBlank { host }) else "",
+            fingerprint = if (pluginHasTls) "chrome" else ""
         )
     }.getOrNull()
+
+    private val REGEX_UUID = Regex(
+        "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    )
 
     /** Tolerant base64: url-safe or standard, missing padding ok. */
     private fun b64Decode(s: String): String? = runCatching {
