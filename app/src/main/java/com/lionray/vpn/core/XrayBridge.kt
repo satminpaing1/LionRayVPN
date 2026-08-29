@@ -151,10 +151,19 @@ object XrayBridge {
         synchronized(lock) {
             lastError = ""
             if (isRunning) return true
-            if (!ensureEnv()) return false
+            if (!ensureEnv()) { dumpError("env init failed:\n$lastError"); return false }
             return try {
                 val handler = object : CoreCallbackHandler {
-                    override fun onEmitStatus(level: Long, msg: String?): Long = 0
+                    // The core emits its REAL failure reason here (level < 0 means
+                    // it stopped itself). Capture it so the UI can show the exact
+                    // cause instead of a generic "core failed to start".
+                    override fun onEmitStatus(level: Long, msg: String?): Long {
+                        if (!msg.isNullOrBlank()) {
+                            if (level < 0) lastError = msg
+                            else if (lastError.isBlank()) lastError = msg
+                        }
+                        return 0
+                    }
                     override fun startup(): Long = 0
                     override fun shutdown(): Long = 0
                 }
@@ -163,15 +172,35 @@ object XrayBridge {
                 controller = c
                 isRunning = c.isRunning
                 blocked.set(0)
-                if (!isRunning) lastError = "core failed to start"
+                if (!isRunning && lastError.isBlank()) lastError = "core failed to start"
+                if (!isRunning) dumpError("startLoop returned not-running:\n$lastError")
                 isRunning
             } catch (t: Throwable) {
                 lastError = t.message ?: t.toString()
                 Log.e(TAG, "start failed", t)
+                dumpError("start threw:\n$lastError")
                 controller = null
                 isRunning = false
                 false
             }
+        }
+    }
+
+    /** Persist the last error to external files so it can be pulled for diagnosis. */
+    private fun dumpError(msg: String) {
+        runCatching {
+            val dir = appContext?.getExternalFilesDir(null) ?: return
+            val dev = android.os.Build
+            val abi = android.os.Build.SUPPORTED_ABIS?.joinToString(",") ?: "?"
+            val header = buildString {
+                append("time: ")
+                append(java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date()))
+                append("\nmodel: ").append(dev.MANUFACTURER).append(" ").append(dev.MODEL)
+                append("\nandroid: ").append(dev.VERSION.RELEASE).append(" (SDK ").append(dev.VERSION.SDK_INT).append(")")
+                append("\nabi: ").append(abi)
+                append("\ncore: ").append(BUNDLED_XRAY_VERSION.ifBlank { "unknown" })
+            }
+            java.io.File(dir, "xray_error.log").writeText("$header\n\n$msg\n")
         }
     }
 
