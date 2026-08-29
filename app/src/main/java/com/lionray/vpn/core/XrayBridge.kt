@@ -226,12 +226,12 @@ object XrayBridge {
         val c = controller ?: return null
         if (!c.isRunning) return null
         return try {
-            val dProxy = c.queryStats("proxy", 0)
-            val uProxy = c.queryStats("proxy", 1)
-            val dDirect = c.queryStats("direct", 0)
-            val uDirect = c.queryStats("direct", 1)
-            val dBlock = c.queryStats("block", 0)
-            val uBlock = c.queryStats("block", 1)
+            val dProxy = c.queryStats("proxy", "0")
+            val uProxy = c.queryStats("proxy", "1")
+            val dDirect = c.queryStats("direct", "0")
+            val uDirect = c.queryStats("direct", "1")
+            val dBlock = c.queryStats("block", "0")
+            val uBlock = c.queryStats("block", "1")
             val down = dProxy + dDirect + dBlock
             val up = uProxy + uDirect + uBlock
             val dDown = (down - lastDown.get()).also { lastDown.set(down) }
