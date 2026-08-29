@@ -65,10 +65,6 @@ object XrayBridge {
     /** Counts traffic the router sent to the "block" outbound (ad blocker) — bytes/session. */
     private val blocked = AtomicLong(0)
 
-    /** Previous cumulative totals, so stats() can return per-interval deltas. */
-    private val lastDown = AtomicLong(0)
-    private val lastUp = AtomicLong(0)
-
     fun blockedCount(): Long = blocked.get()
     fun resetBlocked() = blocked.set(0)
 
@@ -218,26 +214,28 @@ object XrayBridge {
 
     /**
      * Bytes transferred since the previous query, as [down, up].
-     * This libv2ray build exposes [CoreController.queryStats] (a cumulative
-     * per-outbound counter) instead of queryAllOutboundTrafficStats, so we
-     * sum the proxy/direct/block outbounds and return the per-interval delta.
+     * Values come from the core's outbound stats counters (all outbounds:
+     * proxy + direct + block), reset on each read by the core.
      */
     fun stats(): LongArray? {
         val c = controller ?: return null
         if (!c.isRunning) return null
         return try {
-            val dProxy = c.queryStats("proxy", "0")
-            val uProxy = c.queryStats("proxy", "1")
-            val dDirect = c.queryStats("direct", "0")
-            val uDirect = c.queryStats("direct", "1")
-            val dBlock = c.queryStats("block", "0")
-            val uBlock = c.queryStats("block", "1")
-            val down = dProxy + dDirect + dBlock
-            val up = uProxy + uDirect + uBlock
-            val dDown = (down - lastDown.get()).also { lastDown.set(down) }
-            val dUp = (up - lastUp.get()).also { lastUp.set(up) }
-            blocked.set(dBlock)
-            longArrayOf(dDown.coerceAtLeast(0), dUp.coerceAtLeast(0))
+            val payload = c.queryAllOutboundTrafficStats()
+            var down = 0L
+            var up = 0L
+            payload.split(';').forEach { entry ->
+                if (entry.isBlank()) return@forEach
+                val parts = entry.split(',', limit = 3)
+                if (parts.size != 3) return@forEach
+                val value = parts[2].toLongOrNull() ?: return@forEach
+                when (parts[1]) {
+                    "downlink" -> down += value
+                    "uplink" -> up += value
+                }
+                if (parts[0] == "block") blocked.addAndGet(value)
+            }
+            longArrayOf(down, up)
         } catch (t: Throwable) {
             Log.e(TAG, "stats failed", t)
             null
