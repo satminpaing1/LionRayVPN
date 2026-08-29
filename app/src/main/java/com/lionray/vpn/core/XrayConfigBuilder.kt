@@ -113,7 +113,7 @@ object XrayConfigBuilder {
                             JSONObject()
                                 .put("address", p.address)
                                 .put("port", p.port)
-                                .put("method", p.encryption.ifBlank { "aes-256-gcm" })
+                                .put("method", sanitizeSsMethod(p.encryption))
                                 .put("password", p.uuid)
                         )
                     )
@@ -307,8 +307,11 @@ object XrayConfigBuilder {
                 s.put("security", "tls")
                 val tls = JSONObject()
                     .put("serverName", p.sni.ifBlank { p.host.ifBlank { p.address } })
-                    .put("allowInsecure", p.allowInsecure)
                     .put("show", false)
+                // Xray 26 removed "allowInsecure"; the replacement for
+                // skip-cert-verify is verifyPeerCertByName. Never emit the old
+                // field or the config fails to parse.
+                if (p.allowInsecure) tls.put("verifyPeerCertByName", false)
                 if (p.fingerprint.isNotBlank()) tls.put("fingerprint", p.fingerprint)
                 if (p.alpn.isNotBlank()) {
                     val list = p.alpn.split(",").mapNotNull { it.trim().takeIf(String::isNotEmpty) }
@@ -420,5 +423,34 @@ object XrayConfigBuilder {
             }
         }
         return s
+    }
+
+    /**
+     * Maps a subscription-declared Shadowsocks cipher to one this Xray core
+     * actually supports. Modern Xray dropped the legacy non-AEAD ciphers, so
+     * e.g. "chacha20-ietf" must become "chacha20-ietf-poly1305" or the core
+     * fails to build the outbound ("unknown cipher method").
+     */
+    private fun sanitizeSsMethod(raw: String): String {
+        val m = (raw ?: "").trim().lowercase()
+        val supported = setOf(
+            "aes-128-gcm",
+            "aes-256-gcm",
+            "chacha20-ietf-poly1305",
+            "xchacha20-ietf-poly1305",
+            "2022-blake3-aes-128-gcm",
+            "2022-blake3-aes-256-gcm",
+            "2022-blake3-chacha20-poly1305"
+        )
+        if (m in supported) return m
+        // Legacy AliOS / old clients used this 128-bit CFB-ish stream cipher.
+        return when (m) {
+            "chacha20-ietf" -> "chacha20-ietf-poly1305"
+            "aes-256-cfb" -> "aes-256-gcm"
+            "aes-192-cfb" -> "aes-256-gcm"
+            "aes-128-cfb" -> "aes-128-gcm"
+            "rc4-md5" -> "chacha20-ietf-poly1305"
+            else -> "aes-256-gcm"
+        }
     }
 }
