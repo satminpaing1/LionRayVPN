@@ -11,8 +11,8 @@ android {
         applicationId = "com.lionray.vpn"
         minSdk = 29
         targetSdk = 36
-        versionCode = 20300
-        versionName = "2.3"
+        versionCode = 20400
+        versionName = "2.4"
         ndk {
             // libgojni (libv2ray.aar) ships every ABI → one APK for all phones.
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
