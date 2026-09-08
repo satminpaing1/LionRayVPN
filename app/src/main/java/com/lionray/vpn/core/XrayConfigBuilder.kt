@@ -64,7 +64,7 @@ object XrayConfigBuilder {
             JSONObject()
                 .put("queryStrategy", "UseIPv4")
                 .put("disableCache", false)
-                .put("servers", JSONArray(dohServers(dns.key)))
+                .put("servers", JSONArray(mixedDnsServers(dns.key)))
         )
 
         // Traffic byte counters for the speed / usage read-out. The in-process
@@ -378,11 +378,34 @@ object XrayConfigBuilder {
     }
 
     /**
-     * DoH (DNS-over-HTTPS) endpoints for the built-in DNS module, chosen from
-     * the user's DNS preset. HTTPS runs over TCP so it traverses the
-     * Cloudflare vless-ws tunnel even when raw UDP cannot.
+     * Mixed DNS servers: direct UDP (fast, bypasses tunnel) + DoH (reliable,
+     * through tunnel). When the VPN activates, the DoH path needs the tunnel
+     * ready, which can take 200-500 ms — during that window Viber/WhatsApp
+     * DNS lookups time out and messaging appears dead. The direct UDP path
+     * resolves instantly through the phone's own network (Xray process is
+     * excluded from VPN) so apps get DNS before the tunnel is fully up.
      */
-    private fun dohServers(key: String): List<String> = when (key) {
+    private fun mixedDnsServers(key: String): List<Any> {
+        val doh = dohUrls(key)
+        val udp = directIp(key)
+        val result = mutableListOf<Any>()
+        // DoH first: censorship-resistant, through the tunnel
+        result.addAll(doh)
+        // Direct UDP fallback: fast, bypasses tunnel (Xray process excluded from VPN)
+        result.add(udp)
+        return result
+    }
+
+    private fun directIp(key: String): String = when (key) {
+        "cloudflare" -> "1.1.1.1"
+        "google" -> "8.8.8.8"
+        "alidns" -> "223.5.5.5"
+        "dnspod" -> "119.29.29.29"
+        "opendns" -> "208.67.222.222"
+        else -> "1.1.1.1"
+    }
+
+    private fun dohUrls(key: String): List<String> = when (key) {
         "cloudflare" -> listOf("https://1.1.1.1/dns-query", "https://1.0.0.1/dns-query")
         "google" -> listOf("https://8.8.8.8/dns-query", "https://8.8.4.4/dns-query")
         "alidns" -> listOf("https://223.5.5.5/dns-query", "https://223.6.6.6/dns-query")
