@@ -351,7 +351,7 @@ class LionRayVpnService : VpnService() {
                 profile,
                 XrayBridge.SOCKS_PORT,
                 mode,
-                if (dns.domestic) dns.servers else emptyList()
+                dns
             )
         }
         // Keep a copy for debugging (Android/data/com.lionray.vpn/files/)

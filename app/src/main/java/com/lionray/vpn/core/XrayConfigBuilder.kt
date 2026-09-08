@@ -47,10 +47,25 @@ object XrayConfigBuilder {
         p: ServerProfile,
         socksPort: Int = XrayBridge.SOCKS_PORT,
         routingMode: String = SettingsStore.MODE_GLOBAL,
-        dnsDirectIps: List<String> = emptyList()
+        dns: SettingsStore.Dns = SettingsStore.dnsPresets().first()
     ): String {
+        val dnsDirectIps = if (dns.domestic) dns.servers else emptyList()
         val root = JSONObject()
         root.put("log", JSONObject().put("loglevel", "warning"))
+
+        // Built-in DNS module: intercepts the app's raw UDP:53 queries at the
+        // TUN and re-resolves them over HTTPS/TCP (DoH) through the proxy.
+        // CRITICAL for Cloudflare-fronted (vless-ws) servers which cannot relay
+        // raw UDP through the WebSocket tunnel — without this, Viber/WhatsApp
+        // system-DNS lookups silently die and messaging fails even though the
+        // tunnel itself is fine.
+        root.put(
+            "dns",
+            JSONObject()
+                .put("queryStrategy", "UseIPv4")
+                .put("disableCache", false)
+                .put("servers", JSONArray(dohServers(dns.key)))
+        )
 
         // Traffic byte counters for the speed / usage read-out. The in-process
         // core resets these on each query, so stats() returns per-interval deltas.
@@ -171,8 +186,15 @@ object XrayConfigBuilder {
             .put("tag", "block")
             .put("protocol", "blackhole")
             .put("settings", JSONObject())
+        // Internal outbound consumed by the DNS module (routing rule below
+        // sends the app's port-53 packets here, the core resolves them via
+        // the configured DoH servers and answers through the TUN).
+        val dnsOut = JSONObject()
+            .put("tag", "dns-out")
+            .put("protocol", "dns")
+            .put("settings", JSONObject())
 
-        root.put("outbounds", JSONArray().put(proxy).put(direct).put(block))
+        root.put("outbounds", JSONArray().put(proxy).put(direct).put(block).put(dnsOut))
 
         // ---------------- routing ----------------
         val privateIps = JSONArray(
@@ -220,6 +242,17 @@ object XrayConfigBuilder {
                         .put("outboundTag", "direct")
                 )
             }
+            // Built-in DNS module: every other port-53 packet (the app's
+            // system DNS lookup) goes to the internal resolver which answers
+            // via DoH (TCP) through the tunnel. CRITICAL for Cloudflare-fronted
+            // vless-ws servers which cannot relay raw UDP — without this the
+            // lookups silently die and Viber/WhatsApp messaging fails even
+            // though the tunnel itself is fine.
+            rules.put(
+                JSONObject().put("type", "field")
+                    .put("port", 53)
+                    .put("outboundTag", "dns-out")
+            )
             if (routingMode == SettingsStore.MODE_SPLIT_CN && cnDomains.isNotEmpty()) {
                 rules.put(
                     JSONObject().put("type", "field")
@@ -268,6 +301,17 @@ object XrayConfigBuilder {
                     .put("domain", messengerDomains)
                     .put("outboundTag", "proxy")
             )
+            // QUIC/HTTP3 (UDP:443): a Cloudflare-fronted vless-ws edge cannot
+            // relay these packets through the WebSocket tunnel, so block them
+            // and let the app fall back to HTTP/2/TCP which tunnels perfectly.
+            // The domain rules above still let Viber/Messenger/WhatsApp
+            // negotiate call media via XUDP before this rule runs.
+            rules.put(
+                JSONObject().put("type", "field")
+                    .put("network", "udp")
+                    .put("port", "443")
+                    .put("outboundTag", "block")
+            )
             // All remaining UDP — route through proxy so messaging/VoIP
             // works in censored networks (China etc.) where ISP blocks
             // foreign UDP entirely. When voipViaProxy is on, XUDP mux
@@ -305,6 +349,20 @@ object XrayConfigBuilder {
         )
 
         return root.toString(2)
+    }
+
+    /**
+     * DoH (DNS-over-HTTPS) endpoints for the built-in DNS module, chosen from
+     * the user's DNS preset. HTTPS runs over TCP so it traverses the
+     * Cloudflare vless-ws tunnel even when raw UDP cannot.
+     */
+    private fun dohServers(key: String): List<String> = when (key) {
+        "cloudflare" -> listOf("https://1.1.1.1/dns-query", "https://1.0.0.1/dns-query")
+        "google" -> listOf("https://8.8.8.8/dns-query", "https://8.8.4.4/dns-query")
+        "alidns" -> listOf("https://223.5.5.5/dns-query", "https://223.6.6.6/dns-query")
+        "dnspod" -> listOf("https://119.29.29.29/dns-query", "https://182.254.116.116/dns-query")
+        "opendns" -> listOf("https://208.67.222.222/dns-query", "https://208.67.220.220/dns-query")
+        else -> listOf("https://1.1.1.1/dns-query", "https://8.8.8.8/dns-query")
     }
 
     private fun streamSettings(p: ServerProfile): JSONObject {
