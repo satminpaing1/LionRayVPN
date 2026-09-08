@@ -63,7 +63,7 @@ object XrayConfigBuilder {
             "dns",
             JSONObject()
                 .put("queryStrategy", "UseIPv4")
-                .put("disableCache", false)
+                .put("disableCache", true)
                 .put("servers", JSONArray(mixedDnsServers(dns.key)))
         )
 
@@ -378,21 +378,28 @@ object XrayConfigBuilder {
     }
 
     /**
-     * Mixed DNS servers: direct UDP (fast, bypasses tunnel) + DoH (reliable,
-     * through tunnel). When the VPN activates, the DoH path needs the tunnel
-     * ready, which can take 200-500 ms — during that window Viber/WhatsApp
-     * DNS lookups time out and messaging appears dead. The direct UDP path
-     * resolves instantly through the phone's own network (Xray process is
-     * excluded from VPN) so apps get DNS before the tunnel is fully up.
+     * Mixed DNS servers: direct UDP FIRST (instant, bypasses tunnel), DoH as
+     * fallback (censorship-resistant, through tunnel).
+     *
+     * Problem: on VPN reconnect, Viber aggressively reconnects before the new
+     * tunnel is ready. DoH needs the tunnel (~200-500ms), times out, Viber gives
+     * up before UDP fallback is tried. Other apps have longer retries so they
+     * survive.
+     *
+     * Fix: UDP first → resolves in ~10ms via phone's network (Xray excluded from
+     * VPN). DoH only if UDP fails (censored networks).
+     *
+     * Also disable DNS cache ("disableCache": true) so reconnect always gets fresh
+     * resolution — stale cache from previous tunnel session can cause issues.
      */
     private fun mixedDnsServers(key: String): List<Any> {
-        val doh = dohUrls(key)
         val udp = directIp(key)
+        val doh = dohUrls(key)
         val result = mutableListOf<Any>()
-        // DoH first: censorship-resistant, through the tunnel
-        result.addAll(doh)
-        // Direct UDP fallback: fast, bypasses tunnel (Xray process excluded from VPN)
+        // UDP first: instant, bypasses tunnel (Xray process excluded from VPN)
         result.add(udp)
+        // DoH fallback: censorship-resistant, through the tunnel
+        result.addAll(doh)
         return result
     }
 
