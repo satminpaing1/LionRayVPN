@@ -59,11 +59,18 @@ object XrayConfigBuilder {
         // raw UDP through the WebSocket tunnel — without this, Viber/WhatsApp
         // system-DNS lookups silently die and messaging fails even though the
         // tunnel itself is fine.
+        //
+        // fakeDns: intercepts A/AAAA queries at IP layer (returns 198.18.x.x),
+        // then resolves the real domain through the tunnel when the app connects.
+        // This is what v2box/sing-box does on Android and is essential for
+        // apps that use system DNS resolver (getaddrinfo) instead of DoH.
         root.put(
             "dns",
             JSONObject()
                 .put("queryStrategy", "UseIPv4")
                 .put("disableCache", false)
+                .put("fakeDns", true)
+                .put("fakeDnsInet4Range", "198.18.0.0/15")
                 .put("servers", JSONArray(dohServers(dns.key)))
         )
 
