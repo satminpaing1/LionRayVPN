@@ -243,34 +243,42 @@ object XrayConfigBuilder {
                     .put("network", "udp")
                     .put("outboundTag", if (voipViaProxy) "proxy" else "direct")
             )
-            // Viber & Messenger VoIP media domains
-            val voipDomains = JSONArray(listOf(
+            // Viber — full domain list for messaging + VoIP + STUN/TURN
+            val viberDomains = JSONArray(listOf(
                 "domain:viber.com",
                 "domain:viber-cdn.net",
-                "domain:edge-mqtt.facebook.com",
-                "domain:mqtt.facebook.com"
+                "domain:almondknot.com"
             ))
             rules.put(
                 JSONObject().put("type", "field")
-                    .put("domain", voipDomains)
-                    .put("network", "udp")
-                    .put("outboundTag", if (voipViaProxy) "proxy" else "direct")
+                    .put("domain", viberDomains)
+                    .put("outboundTag", "proxy")
             )
-            // QUIC/HTTP3 over a CDN ws/tls tunnel is unreliable -> block it so
-            // apps fall back to TCP (which proxies perfectly)
-            // However, do NOT block UDP:443 for Telegram/Viber/Messenger (calls may use it)
+            // Messenger / Facebook / WhatsApp domains
+            val messengerDomains = JSONArray(listOf(
+                "domain:edge-mqtt.facebook.com",
+                "domain:mqtt.facebook.com",
+                "domain:facebook.com",
+                "domain:fbcdn.net",
+                "domain:whatsapp.com",
+                "domain:whatsapp.net"
+            ))
             rules.put(
                 JSONObject().put("type", "field")
-                    .put("network", "udp")
-                    .put("port", "443")
-                    .put("outboundTag", "block")
+                    .put("domain", messengerDomains)
+                    .put("outboundTag", "proxy")
             )
-            // ws/tls transports cannot carry raw UDP... UNLESS XUDP mux is
-            // active (voipViaProxy): then UDP is TCP-encapsulated through the
-            // tunnel, which is required where the apps themselves are blocked
-            if (!voipViaProxy) {
-                // send UDP straight out so VoIP calls stay alive on normal
-                // networks (Messenger / Telegram / Viber media)
+            // All remaining UDP — route through proxy so messaging/VoIP
+            // works in censored networks (China etc.) where ISP blocks
+            // foreign UDP entirely. When voipViaProxy is on, XUDP mux
+            // encapsulates UDP over the TCP tunnel.
+            if (voipViaProxy) {
+                rules.put(
+                    JSONObject().put("type", "field")
+                        .put("network", "udp")
+                        .put("outboundTag", "proxy")
+                )
+            } else {
                 rules.put(
                     JSONObject().put("type", "field")
                         .put("network", "udp")
