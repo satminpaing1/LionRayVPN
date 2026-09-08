@@ -283,7 +283,11 @@ object XrayConfigBuilder {
                     .put("network", "udp")
                     .put("outboundTag", if (udpViaProxy) "proxy" else "direct")
             )
-            // Viber — full domain list for messaging + VoIP + STUN/TURN
+            // Viber — full domain list for messaging + VoIP + STUN/TURN.
+            // TCP always via the tunnel; UDP follows the udpViaProxy policy:
+            // on a bare WebSocket transport the server cannot relay raw UDP
+            // (ports 7985/7987/5242/5243/4244 carry the messaging heartbeat),
+            // so forcing UDP into the proxy silently kills those sessions.
             val viberDomains = JSONArray(listOf(
                 "domain:viber.com",
                 "domain:viber-cdn.net",
@@ -292,9 +296,16 @@ object XrayConfigBuilder {
             rules.put(
                 JSONObject().put("type", "field")
                     .put("domain", viberDomains)
+                    .put("network", "tcp")
                     .put("outboundTag", "proxy")
             )
-            // Messenger / Facebook / WhatsApp domains
+            rules.put(
+                JSONObject().put("type", "field")
+                    .put("domain", viberDomains)
+                    .put("network", "udp")
+                    .put("outboundTag", if (udpViaProxy) "proxy" else "direct")
+            )
+            // Messenger / Facebook / WhatsApp domains — same TCP/UDP split.
             val messengerDomains = JSONArray(listOf(
                 "domain:edge-mqtt.facebook.com",
                 "domain:mqtt.facebook.com",
@@ -306,7 +317,14 @@ object XrayConfigBuilder {
             rules.put(
                 JSONObject().put("type", "field")
                     .put("domain", messengerDomains)
+                    .put("network", "tcp")
                     .put("outboundTag", "proxy")
+            )
+            rules.put(
+                JSONObject().put("type", "field")
+                    .put("domain", messengerDomains)
+                    .put("network", "udp")
+                    .put("outboundTag", if (udpViaProxy) "proxy" else "direct")
             )
             // QUIC/HTTP3 (UDP:443): a Cloudflare-fronted vless-ws edge cannot
             // relay these packets through the WebSocket tunnel, so block them
