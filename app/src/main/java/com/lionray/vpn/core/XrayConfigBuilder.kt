@@ -173,8 +173,15 @@ object XrayConfigBuilder {
             }
         }
         // XUDP (mux concurrency -1) encapsulates UDP over any transport —
-        // mandatory when VoIP media must traverse ws+tls
-        if (p.muxEnabled || voipViaProxy) {
+        // mandatory when VoIP media must traverse a tunnel. BUT it must NOT be
+        // forced for WebSocket: WS transport is TCP-only, and Cloudflare-fronted
+        // VLESS+WS servers (the common case) almost always run with mux disabled.
+        // Forcing mux here makes the client frame every stream as mux/XUDP, which
+        // such servers cannot decode — web pages that use short fetches survive,
+        // but persistent sockets (Viber/WhatsApp messaging) stall or fail.
+        val useMux = p.muxEnabled || (voipViaProxy && p.network != "ws")
+        val udpViaProxy = voipViaProxy && useMux
+        if (useMux) {
             proxy.put("mux", JSONObject().put("enabled", true).put("concurrency", -1))
         }
 
@@ -274,7 +281,7 @@ object XrayConfigBuilder {
                 JSONObject().put("type", "field")
                     .put("domain", telegramDomains)
                     .put("network", "udp")
-                    .put("outboundTag", if (voipViaProxy) "proxy" else "direct")
+                    .put("outboundTag", if (udpViaProxy) "proxy" else "direct")
             )
             // Viber — full domain list for messaging + VoIP + STUN/TURN
             val viberDomains = JSONArray(listOf(
@@ -312,11 +319,12 @@ object XrayConfigBuilder {
                     .put("port", "443")
                     .put("outboundTag", "block")
             )
-            // All remaining UDP — route through proxy so messaging/VoIP
-            // works in censored networks (China etc.) where ISP blocks
-            // foreign UDP entirely. When voipViaProxy is on, XUDP mux
-            // encapsulates UDP over the TCP tunnel.
-            if (voipViaProxy) {
+            // All remaining UDP — route through proxy ONLY when the tunnel can
+            // actually carry it (mux/XUDP is on). For a bare WebSocket / other
+            // un-muxed transport, UDP goes direct because the server cannot
+            // relay it; forcing it into the proxy would just make those apps
+            // hang instead of falling back.
+            if (udpViaProxy) {
                 rules.put(
                     JSONObject().put("type", "field")
                         .put("network", "udp")
