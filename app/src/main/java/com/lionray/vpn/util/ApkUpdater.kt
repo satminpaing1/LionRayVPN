@@ -81,15 +81,21 @@ object ApkUpdater {
         // New format: app-v1.1-core27.1.5
         val m = Regex("""app-v(\d+\.\d+)""").find(tag)
         if (m != null) return m.groupValues[1]
-        // Legacy format: v26.3.27
-        return tag.removePrefix("v").takeIf { it.isNotEmpty() } ?: tag
+        // Legacy format: v26.3.27 — only accept a bare, well-formed core tag here,
+        // so a malformed app tag like "app-v13-core26.8.20" can NEVER leak a core
+        // version (e.g. 26.8) into app version parsing (that caused phantom
+        // perpetual update prompts). Return "" -> computed code 0 -> no update.
+        val legacy = tag.removePrefix("v")
+        return if (Regex("""\d+\.\d+""").matches(legacy)) legacy else ""
     }
 
-    /** Compute versionCode from app version: "1.1" → 1*10000 + 1*100 = 10100 */
+    /** Compute versionCode from app version: "2.13" → 2*100000 + 13*100 = 201300.
+     *  Same formula as the CI workflow "Set version" step. The 100000 factor
+     *  keeps codes monotonically increasing above every historical release. */
     private fun computeVersionCode(appVersion: String): Int {
-        val m = Regex("""(\d+)\.(\d+)""").find(appVersion) ?: return 0
-        val (a, b) = m.destructured
-        return a.toInt() * 10000 + b.toInt() * 100
+        if (!Regex("""\d+\.\d+""").matches(appVersion)) return 0
+        val (a, b) = appVersion.split(".")
+        return a.toInt() * 100000 + b.toInt() * 100
     }
 
     /** Returns true when [remote] is newer than the installed APK. */

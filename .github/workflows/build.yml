@@ -83,10 +83,17 @@ jobs:
       - name: Set version
         run: |
           APP_VER="${{ github.event.inputs.app_version }}"
-          # Compute versionCode: major*10000 + minor*100
+          # Validate format: must be MAJOR.MINOR (e.g. 2.13). A bare "13" or any
+          # dot-less value silently poisoned versionCode before; reject it here.
+          if [[ ! "$APP_VER" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::app_version must look like N.N (e.g. 2.13), got '$APP_VER'"
+            exit 1
+          fi
+          # Compute versionCode: major*100000 + minor*100 (MUST mirror the
+          # ApkUpdater.computeVersionCode formula so in-app update checks agree).
           MAJOR=$(echo "$APP_VER" | cut -d. -f1)
           MINOR=$(echo "$APP_VER" | cut -d. -f2)
-          CODE=$((MAJOR * 10000 + MINOR * 100))
+          CODE=$((MAJOR * 100000 + MINOR * 100))
           sed -i "s/versionCode = .*/versionCode = $CODE/" app/build.gradle.kts
           sed -i "s/versionName = \".*\"/versionName = \"$APP_VER\"/" app/build.gradle.kts
           echo "APP v${APP_VER} (versionCode=$CODE)"
