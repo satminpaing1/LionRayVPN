@@ -47,23 +47,14 @@ object XrayConfigBuilder {
         }
         root.put("log", log)
 
-        // FakeDNS: gives the app a fake 198.18.x.x IP per query, then maps it
-        // back to the real domain when the connection arrives. This lets the
-        // tunnel route by domain (fast, no second lookup) and keeps DNS quick.
-        root.put(
-            "fakedns",
-            JSONArray()
-                .put(JSONObject().put("ipPool", "198.18.0.0/15").put("poolSize", 65535))
-        )
-
-        // Built-in DNS module: FakeDNS first, DoH via the tunnel as the real
-        // resolver, "localhost" as the final system fallback. Port-53 packets
-        // are intercepted by the dns-out rule below.
+        // Built-in DNS module: plain UDP resolvers direct (8.8.8.8/1.1.1.1),
+        // "localhost" as the final system fallback. Port-53 packets are
+        // intercepted by the dns-out rule below and answered by this module.
         root.put(
             "dns",
             JSONObject()
-                .put("queryStrategy", "UseIP")
-                .put("servers", JSONArray(listOf("fakedns") + dohUrls(dns.key) + "localhost"))
+                .put("queryStrategy", "UseIPv4")
+                .put("servers", JSONArray(plainDnsServers(dns.key) + "localhost"))
         )
 
         // Traffic byte counters for the speed / usage read-out. The in-process
@@ -82,7 +73,7 @@ object XrayConfigBuilder {
         // ---------------- inbounds ----------------
         val sniffing = JSONObject()
             .put("enabled", true)
-            .put("destOverride", JSONArray(listOf("http", "tls", "fakedns")))
+            .put("destOverride", JSONArray(listOf("http", "tls")))
             .put("routeOnly", false)
 
         val socksInbound = JSONObject()
@@ -198,10 +189,11 @@ object XrayConfigBuilder {
         // ---------------- routing ----------------
         val rules = JSONArray()
 
-        // App DNS queries go to the built-in resolver (required for FakeDNS).
+        // App DNS queries go to the built-in resolver (UDP then TCP).
         rules.put(
             JSONObject().put("type", "field")
                 .put("port", 53)
+                .put("network", "udp,tcp")
                 .put("outboundTag", "dns-out")
         )
         // Private/loopback ranges stay on the device — geoip:private covers all
@@ -211,18 +203,25 @@ object XrayConfigBuilder {
                 .put("outboundTag", "direct")
                 .put("ip", JSONArray(listOf("geoip:private")))
         )
-        // Everything else routes through the tunnel.
+        // All other UDP is dropped — forces everything onto TCP so the
+        // WebSocket tunnel (TCP-only) can carry it; prevents UDP-to-ws from
+        // hanging forever.
         rules.put(
             JSONObject().put("type", "field")
-                .put("port", "0-65535")
-                .put("network", "tcp,udp")
+                .put("network", "udp")
+                .put("outboundTag", "block")
+        )
+        // Everything else (TCP) routes through the tunnel.
+        rules.put(
+            JSONObject().put("type", "field")
+                .put("network", "tcp")
                 .put("outboundTag", "proxy")
         )
 
         root.put(
             "routing",
             JSONObject()
-                .put("domainStrategy", "IPIfNonMatch")
+                .put("domainStrategy", "AsIs")
                 .put("rules", rules)
         )
 
@@ -230,18 +229,22 @@ object XrayConfigBuilder {
     }
 
     /**
-     * DoH server URLs per DNS preset — the first is primary, the rest are
-     * fallbacks. "localhost" is appended by build() so the core can fall back
-     * to the Android system resolver if both DoH endpoints are unreachable.
+     * Plain UDP DNS server IPs per preset — the primary first, a secondary
+     * fallback second. "localhost" is appended by build() so the core can fall
+     * back to the Android system resolver if both are unreachable.
      */
-    private fun dohUrls(key: String): List<String> = when (key) {
-        "cloudflare" -> listOf("https://1.1.1.1/dns-query", "https://1.0.0.1/dns-query")
-        "google" -> listOf("https://8.8.8.8/dns-query", "https://8.8.4.4/dns-query")
-        "alidns" -> listOf("https://223.5.5.5/dns-query", "https://223.6.6.6/dns-query")
-        "dnspod" -> listOf("https://119.29.29.29/dns-query", "https://182.254.116.116/dns-query")
-        "opendns" -> listOf("https://208.67.222.222/dns-query", "https://208.67.220.220/dns-query")
-        else -> listOf("https://1.1.1.1/dns-query", "https://8.8.8.8/dns-query")
+    private fun plainDnsServers(key: String): List<String> = when (key) {
+        "cloudflare" -> listOf("1.1.1.1", "1.0.0.1")
+        "google" -> listOf("8.8.8.8", "8.8.4.4")
+        "alidns" -> listOf("223.5.5.5", "223.6.6.6")
+        "dnspod" -> listOf("119.29.29.29", "182.254.116.116")
+        "opendns" -> listOf("208.67.222.222", "208.67.220.220")
+        else -> listOf("8.8.8.8", "1.1.1.1")
     }
+
+    /** WebSocket path — always starts with "/" so "?ed=2560" becomes "/?ed=2560". */
+    private fun wsPath(raw: String): String =
+        if (raw.isBlank()) "/" else if (raw.startsWith("/")) raw else "/$raw"
 
     private fun streamSettings(p: ServerProfile): JSONObject {
         val s = JSONObject().put("network", p.network)
@@ -293,7 +296,7 @@ object XrayConfigBuilder {
                 }
             }
             "ws" -> {
-                val ws = JSONObject().put("path", p.path.ifBlank { "/" })
+                val ws = JSONObject().put("path", wsPath(p.path))
                 if (p.host.isNotBlank()) ws.put("headers", JSONObject().put("Host", p.host))
                 s.put("wsSettings", ws)
             }
