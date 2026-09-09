@@ -50,7 +50,6 @@ object XrayConfigBuilder {
         dns: SettingsStore.Dns = SettingsStore.dnsPresets().first(),
         logFileDir: String? = null
     ): String {
-        val dnsDirectIps = if (dns.domestic) dns.servers else emptyList()
         val root = JSONObject()
         val log = JSONObject().put("loglevel", "info")
         // When a writable directory is supplied the core writes a full access
@@ -224,194 +223,25 @@ object XrayConfigBuilder {
         )
         val rules = JSONArray()
 
-        // Ad/tracker blocker — must be the first rule so nothing else
-        // short-circuits it
-        if (adBlock && adDomains.isNotEmpty()) {
-            rules.put(
-                JSONObject().put("type", "field")
-                    .put("domain", JSONArray(adDomains))
-                    .put("outboundTag", "block")
-            )
-        }
-
-        // User bypass list: these sites see the phone's own IP (fixes
-        // sites that block Cloudflare / proxy exit addresses)
-        if (bypassDomains.isNotEmpty()) {
-            rules.put(
-                JSONObject().put("type", "field")
-                    .put("domain", JSONArray(bypassDomains))
-                    .put("outboundTag", "direct")
-            )
-        }
-
-        if (routingMode == SettingsStore.MODE_DIRECT) {
-            rules.put(
-                JSONObject().put("type", "field")
-                    .put("network", "tcp,udp")
-                    .put("outboundTag", "direct")
-            )
-        } else {
-            // domestic DNS servers resolve outside the tunnel so CN apps get
-            // local CDN results
-            if (dnsDirectIps.isNotEmpty()) {
-                rules.put(
-                    JSONObject().put("type", "field")
-                        .put("ip", JSONArray(dnsDirectIps))
-                        .put("outboundTag", "direct")
-                )
-            }
-            // Built-in DNS module: every other port-53 packet (the app's
-            // system DNS lookup) goes to the internal resolver which answers
-            // via DoH (TCP) through the tunnel. CRITICAL for Cloudflare-fronted
-            // vless-ws servers which cannot relay raw UDP — without this the
-            // lookups silently die and Viber/WhatsApp messaging fails even
-            // though the tunnel itself is fine.
-            rules.put(
-                JSONObject().put("type", "field")
-                    .put("port", 53)
-                    .put("outboundTag", "dns-out")
-            )
-            if (routingMode == SettingsStore.MODE_SPLIT_CN && cnDomains.isNotEmpty()) {
-                rules.put(
-                    JSONObject().put("type", "field")
-                        .put("domain", JSONArray(cnDomains))
-                        .put("outboundTag", "direct")
-                )
-            }
-            // Telegram group call media uses its own data centres; route
-            // their UDP through the proxy so they survive ISP-level UDP
-            // blocking (the classic "call joins but no audio" symptom).
-            val telegramDomains = JSONArray(listOf(
-                "domain:web.telegram.org",
-                "domain:telegram.org",
-                "domain:t.me",
-                "domain:tg.dev",
-                "domain:mt.me"
-            ))
-            rules.put(
-                JSONObject().put("type", "field")
-                    .put("domain", telegramDomains)
-                    .put("network", "udp")
-                    .put("outboundTag", if (udpViaProxy) "proxy" else "direct")
-            )
-            // Viber — full domain list for messaging + VoIP + STUN/TURN.
-            // TCP always via the tunnel; UDP follows the udpViaProxy policy:
-            // on a bare WebSocket transport the server cannot relay raw UDP
-            // (ports 7985/7987/5242/5243/4244 carry the messaging heartbeat),
-            // so forcing UDP into the proxy silently kills those sessions.
-            val viberDomains = JSONArray(listOf(
-                "domain:viber.com",
-                "domain:viber-cdn.net",
-                "domain:almondknot.com"
-            ))
-            rules.put(
-                JSONObject().put("type", "field")
-                    .put("domain", viberDomains)
-                    .put("network", "tcp")
-                    .put("outboundTag", "proxy")
-            )
-            rules.put(
-                JSONObject().put("type", "field")
-                    .put("domain", viberDomains)
-                    .put("network", "udp")
-                    .put("outboundTag", if (udpViaProxy) "proxy" else "direct")
-            )
-            // Messenger / Facebook / WhatsApp domains — same TCP/UDP split.
-            val messengerDomains = JSONArray(listOf(
-                "domain:edge-mqtt.facebook.com",
-                "domain:mqtt.facebook.com",
-                "domain:facebook.com",
-                "domain:fbcdn.net",
-                "domain:whatsapp.com",
-                "domain:whatsapp.net"
-            ))
-            rules.put(
-                JSONObject().put("type", "field")
-                    .put("domain", messengerDomains)
-                    .put("network", "tcp")
-                    .put("outboundTag", "proxy")
-            )
-            rules.put(
-                JSONObject().put("type", "field")
-                    .put("domain", messengerDomains)
-                    .put("network", "udp")
-                    .put("outboundTag", if (udpViaProxy) "proxy" else "direct")
-            )
-            // QUIC/HTTP3 (UDP:443): a Cloudflare-fronted vless-ws edge cannot
-            // relay these packets through the WebSocket tunnel, so block them
-            // and let the app fall back to HTTP/2/TCP which tunnels perfectly.
-            // The domain rules above still let Viber/Messenger/WhatsApp
-            // negotiate call media via XUDP before this rule runs.
-            rules.put(
-                JSONObject().put("type", "field")
-                    .put("network", "udp")
-                    .put("port", "443")
-                    .put("outboundTag", "block")
-            )
-            // Viber specific UDP ports (messaging heartbeat + VoIP):
-            // 7985, 7987, 5242, 5243, 4244 — these MUST follow udpViaProxy
-            // policy (direct for bare WS, proxy for muxed transports) so the
-            // app doesn't hang when the transport can't relay raw UDP.
-            val viberUdpPorts = JSONArray(listOf("7985", "7987", "5242", "5243", "4244"))
-            rules.put(
-                JSONObject().put("type", "field")
-                    .put("network", "udp")
-                    .put("port", viberUdpPorts)
-                    .put("outboundTag", if (udpViaProxy) "proxy" else "direct")
-            )
-            // All remaining UDP — route through proxy ONLY when the tunnel can
-            // actually carry it (mux/XUDP is on). For a bare WebSocket / other
-            // un-muxed transport, UDP goes direct because the server cannot
-            // relay it; forcing it into the proxy would just make those apps
-            // hang instead of falling back.
-            if (udpViaProxy) {
-                rules.put(
-                    JSONObject().put("type", "field")
-                        .put("network", "udp")
-                        .put("outboundTag", "proxy")
-                )
-            } else {
-                rules.put(
-                    JSONObject().put("type", "field")
-                        .put("network", "udp")
-                        .put("outboundTag", "direct")
-                )
-            }
-            rules.put(
-                JSONObject().put("type", "field")
-                    .put("ip", privateIps)
-                    .put("outboundTag", "direct")
-            )
-            // Route globally-routable IPv6 TCP THROUGH THE PROXY. Viber keeps
-            // hardcoded IPv6 server addresses and tries them over every tunnel.
-            //
-            // Previous approaches failed:
-            //   - "block" (blackhole): silent timeout (~10-30s each), Viber
-            //     retries for ~2 minutes before IPv4 fallback.
-            //   - "direct": works in open networks (ICMP unreachable → fast
-            //     fallback), but in China the GFW silently drops IPv6 to
-            //     foreign servers → same timeout problem as "block".
-            //
-            // "proxy" for TCP solves BOTH cases:
-            //   - Censored (China): IPv6 TCP goes through the tunnel → GFW can't
-            //     touch it → Viber connects successfully.
-            //   - Open networks: IPv6 TCP goes through the tunnel → works fine.
-            // UDP follows the udpViaProxy policy (direct for bare WS, proxy for
-            // muxed transports) so Viber's heartbeat ports work correctly.
-            //
-            // (Local/ULA/link-local v6 already went direct above.)
-            rules.put(
-                JSONObject().put("type", "field")
-                    .put("ip", JSONArray(listOf("::/0")))
-                    .put("network", "tcp")
-                    .put("outboundTag", "proxy")
-            )
-            rules.put(
-                JSONObject().put("type", "field")
-                    .put("network", "tcp,udp")
-                    .put("outboundTag", "proxy")
-            )
-        }
+        // Built-in DNS module: the app's port-53 packets go to the internal
+        // resolver which answers via DoH (TCP) through the tunnel.
+        rules.put(
+            JSONObject().put("type", "field")
+                .put("port", 53)
+                .put("outboundTag", "dns-out")
+        )
+        // Private/loopback ranges stay on the device.
+        rules.put(
+            JSONObject().put("type", "field")
+                .put("ip", privateIps)
+                .put("outboundTag", "direct")
+        )
+        // Everything else routes through the tunnel.
+        rules.put(
+            JSONObject().put("type", "field")
+                .put("network", "tcp,udp")
+                .put("outboundTag", "proxy")
+        )
 
         root.put(
             "routing",
