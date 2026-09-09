@@ -51,7 +51,7 @@ object XrayConfigBuilder {
     ): String {
         val dnsDirectIps = if (dns.domestic) dns.servers else emptyList()
         val root = JSONObject()
-        root.put("log", JSONObject().put("loglevel", "warning"))
+        root.put("log", JSONObject().put("loglevel", "info"))
 
         // Built-in DNS module: intercepts the app's raw UDP:53 queries at the
         // TUN and re-resolves them over HTTPS/TCP (DoH) through the proxy.

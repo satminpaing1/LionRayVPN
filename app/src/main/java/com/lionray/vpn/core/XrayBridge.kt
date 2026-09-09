@@ -68,6 +68,72 @@ object XrayBridge {
     fun blockedCount(): Long = blocked.get()
     fun resetBlocked() = blocked.set(0)
 
+    // ---- runtime log capture (diagnostics) --------------------------------
+    /** Name of the public-Downloads copy of the runtime log the user can share. */
+    const val RUNTIME_LOG_NAME = "LionRay_xray_runtime.log"
+
+    @Volatile private var runtimeLog = StringBuilder()
+    private val runtimeLock = Any()
+    private var runtimeLines = 0
+
+    private fun appendLog(level: Long, msg: String) {
+        synchronized(runtimeLock) {
+            val ts = java.text.SimpleDateFormat(
+                "MM-dd HH:mm:ss.SSS", java.util.Locale.US
+            ).format(java.util.Date())
+            val lvl = when {
+                level < 0 -> "E"
+                level > 0 -> "I"
+                else -> "I"
+            }
+            runtimeLog.append(ts).append(" [").append(lvl).append("] ").append(msg).append('\n')
+            runtimeLines++
+            if (runtimeLines > 600) {
+                // drop oldest half to bound memory
+                runtimeLog = StringBuilder(runtimeLog.substring(runtimeLog.length / 2))
+                runtimeLines = runtimeLines / 2
+            }
+        }
+    }
+
+    /** Latest runtime log text (for the in-app debug export). */
+    fun peekRuntimeLog(): String = synchronized(runtimeLock) { runtimeLog.toString() }
+
+    fun resetRuntimeLog() = synchronized(runtimeLock) {
+        runtimeLog = StringBuilder()
+        runtimeLines = 0
+    }
+
+    /**
+     * Publishes the accumulated core log into public Downloads via MediaStore,
+     * so the user can share it from the Files app without ADB. Called on stop.
+     */
+    fun flushRuntimeLogToDownloads() {
+        val ctx = appContext ?: return
+        val text = peekRuntimeLog()
+        if (text.isBlank()) return
+        runCatching {
+            val resolver = ctx.contentResolver
+            resolver.delete(
+                android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                "${android.provider.MediaStore.Downloads.DISPLAY_NAME}=?",
+                arrayOf(RUNTIME_LOG_NAME)
+            )
+            val values = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.Downloads.DISPLAY_NAME, RUNTIME_LOG_NAME)
+                put(android.provider.MediaStore.Downloads.MIME_TYPE, "text/plain")
+                put(
+                    android.provider.MediaStore.Downloads.RELATIVE_PATH,
+                    android.os.Environment.DIRECTORY_DOWNLOADS
+                )
+            }
+            val uri = resolver.insert(
+                android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values
+            ) ?: return@runCatching
+            resolver.openOutputStream(uri, "w")?.use { it.write(text.toByteArray()) }
+        }
+    }
+
     @Volatile
     var listener: StatusListener? = null
 
@@ -156,11 +222,13 @@ object XrayBridge {
                 val handler = object : CoreCallbackHandler {
                     // The core emits its REAL failure reason here (level < 0 means
                     // it stopped itself). Capture it so the UI can show the exact
-                    // cause instead of a generic "core failed to start".
+                    // cause instead of a generic "core failed to start". Also
+                    // buffers the whole runtime stream for diagnostics.
                     override fun onEmitStatus(level: Long, msg: String?): Long {
                         if (!msg.isNullOrBlank()) {
                             if (level < 0) lastError = msg
                             else if (lastError.isBlank()) lastError = msg
+                            appendLog(level, msg)
                         }
                         return 0
                     }
@@ -210,6 +278,7 @@ object XrayBridge {
             isRunning = false
             runCatching { c.stopLoop() }
         }
+        flushRuntimeLogToDownloads()
     }
 
     /**
