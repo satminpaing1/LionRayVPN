@@ -47,14 +47,23 @@ object XrayConfigBuilder {
         }
         root.put("log", log)
 
-        // Built-in DNS module: plain UDP resolvers direct (8.8.8.8/1.1.1.1),
-        // "localhost" as the final system fallback. Port-53 packets are
-        // intercepted by the dns-out rule below and answered by this module.
+        // FakeDNS: gives the app a fake 198.18.x.x IP per query, then maps it
+        // back to the real domain when the connection arrives. Combined with the
+        // plain resolvers below the queries are answered instantly with a fake
+        // address, and the real lookup rides the tunnel (v2box reference config).
+        root.put(
+            "fakedns",
+            JSONArray()
+                .put(JSONObject().put("ipPool", "198.18.0.0/15").put("poolSize", 65535))
+        )
+
+        // Built-in DNS module: FakeDNS first, plain UDP resolvers direct as the
+        // real upstream. No localhost — all lookups stay inside the core.
         root.put(
             "dns",
             JSONObject()
                 .put("queryStrategy", "UseIPv4")
-                .put("servers", JSONArray(plainDnsServers(dns.key) + "localhost"))
+                .put("servers", JSONArray(listOf("fakedns") + plainDnsServers(dns.key)))
         )
 
         // Traffic byte counters for the speed / usage read-out. The in-process
@@ -73,7 +82,7 @@ object XrayConfigBuilder {
         // ---------------- inbounds ----------------
         val sniffing = JSONObject()
             .put("enabled", true)
-            .put("destOverride", JSONArray(listOf("http", "tls")))
+            .put("destOverride", JSONArray(listOf("http", "tls", "fakedns")))
             .put("routeOnly", false)
 
         val socksInbound = JSONObject()
@@ -177,14 +186,10 @@ object XrayConfigBuilder {
             .put("tag", "block")
             .put("protocol", "blackhole")
             .put("settings", JSONObject())
-        // Outbounds: proxy (the tunnel), direct, block, and dns-out (internal
-        // resolver consumed by the port-53 routing rule below).
-        val dnsOut = JSONObject()
-            .put("tag", "dns-out")
-            .put("protocol", "dns")
-            .put("settings", JSONObject())
-
-        root.put("outbounds", JSONArray().put(proxy).put(direct).put(block).put(dnsOut))
+        // Outbounds: proxy (the tunnel), direct, block. No dns-out — DNS goes
+        // straight out of the phone's own network (port-53 rule sends it to
+        // direct) while FakeDNS answers the apps locally.
+        root.put("outbounds", JSONArray().put(proxy).put(direct).put(block))
 
         // ---------------- routing ----------------
         val rules = JSONArray()
@@ -196,12 +201,12 @@ object XrayConfigBuilder {
                 .put("ip", JSONArray(listOf("::/0")))
                 .put("outboundTag", "block")
         )
-        // App DNS queries go to the built-in resolver (UDP then TCP).
+        // App DNS goes straight out the phone's own network (Xray is excluded
+        // from the VPN); FakeDNS answers the apps locally.
         rules.put(
             JSONObject().put("type", "field")
                 .put("port", 53)
-                .put("network", "udp,tcp")
-                .put("outboundTag", "dns-out")
+                .put("outboundTag", "direct")
         )
         // Private/loopback ranges stay on the device — geoip:private covers all
         // RFC1918 + IPv6 ULA ranges (v2box reference config).
@@ -228,7 +233,7 @@ object XrayConfigBuilder {
         root.put(
             "routing",
             JSONObject()
-                .put("domainStrategy", "AsIs")
+                .put("domainStrategy", "UseIPv4")
                 .put("rules", rules)
         )
 
@@ -237,8 +242,7 @@ object XrayConfigBuilder {
 
     /**
      * Plain UDP DNS server IPs per preset — the primary first, a secondary
-     * fallback second. "localhost" is appended by build() so the core can fall
-     * back to the Android system resolver if both are unreachable.
+     * fallback second. build() puts "fakedns" first in front of these.
      */
     private fun plainDnsServers(key: String): List<String> = when (key) {
         "cloudflare" -> listOf("1.1.1.1", "1.0.0.1")
@@ -246,7 +250,7 @@ object XrayConfigBuilder {
         "alidns" -> listOf("223.5.5.5", "223.6.6.6")
         "dnspod" -> listOf("119.29.29.29", "182.254.116.116")
         "opendns" -> listOf("208.67.222.222", "208.67.220.220")
-        else -> listOf("8.8.8.8", "1.1.1.1")
+        else -> listOf("8.8.8.8", "8.8.4.4")
     }
 
     /** WebSocket path — always starts with "/" so "?ed=2560" becomes "/?ed=2560". */

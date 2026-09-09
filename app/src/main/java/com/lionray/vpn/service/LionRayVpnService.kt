@@ -469,9 +469,7 @@ class LionRayVpnService : VpnService() {
             .setSession("LionRay VPN")
             .setMtu(VPN_MTU)
             .addAddress("26.26.26.1", 24)
-            .addAddress("fdfe:dcba:9876::1", 126)
             .addRoute("0.0.0.0", 0)
-            .addRoute("::", 0)
         for (s in dns.servers) builder.addDnsServer(s)
         try {
             builder.addDisallowedApplication(packageName)
