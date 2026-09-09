@@ -71,27 +71,54 @@ class LionRayVpnService : VpnService() {
     private val failoverRunning = AtomicBoolean(false)
     private var failoverAttempts = 0
 
+    @Volatile private var vpnNetworks =
+        java.util.Collections.newSetFromMap(
+            java.util.concurrent.ConcurrentHashMap<android.net.Network, Boolean>()
+        )
+
     private fun armNetworkWatcher() {
         if (netWatchArmed) return
         val cm = getSystemService(android.net.ConnectivityManager::class.java) ?: return
         val cb = object : android.net.ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: android.net.Network) {
+                // Our own TUN (TRANSPORT_VPN) comes up whenever the VPN starts.
+                // It must NOT trigger a core restart — that would tear down the
+                // very tunnel we just built and kill every app connection,
+                // including Viber's persistent socket. v2box keeps the TUN alive
+                // on network changes; we mirror that by only reacting to the
+                // actual physical default network.
+                val caps = cm.getNetworkCapabilities(network)
+                if (caps?.hasTransport(
+                        android.net.NetworkCapabilities.TRANSPORT_VPN
+                    ) == true
+                ) {
+                    vpnNetworks.add(network)
+                    return
+                }
                 scheduleCoreRestart()
             }
 
             override fun onLost(network: android.net.Network) {
+                if (vpnNetworks.remove(network)) return
                 // the replacement network fires onAvailable right after;
                 // scheduling here too keeps the gap short when it doesn't
                 scheduleCoreRestart()
             }
         }
         runCatching {
-            cm.registerNetworkCallback(
-                android.net.NetworkRequest.Builder()
-                    .addCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                    .build(),
-                cb
-            )
+            // Default-network callback (only fires on a real WiFi/SIM switch for
+            // our package, which is disallowed from the TUN) instead of
+            // registerNetworkCallback (fires for EVERY network incl. the VPN).
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                cm.registerDefaultNetworkCallback(cb)
+            } else {
+                cm.registerNetworkCallback(
+                    android.net.NetworkRequest.Builder()
+                        .addCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        .build(),
+                    cb
+                )
+            }
             networkCallback = cb
             netWatchArmed = true
         }
