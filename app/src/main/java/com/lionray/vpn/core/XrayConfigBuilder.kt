@@ -348,6 +348,17 @@ object XrayConfigBuilder {
                     .put("port", "443")
                     .put("outboundTag", "block")
             )
+            // Viber specific UDP ports (messaging heartbeat + VoIP):
+            // 7985, 7987, 5242, 5243, 4244 — these MUST follow udpViaProxy
+            // policy (direct for bare WS, proxy for muxed transports) so the
+            // app doesn't hang when the transport can't relay raw UDP.
+            val viberUdpPorts = JSONArray(listOf("7985", "7987", "5242", "5243", "4244"))
+            rules.put(
+                JSONObject().put("type", "field")
+                    .put("network", "udp")
+                    .put("port", viberUdpPorts)
+                    .put("outboundTag", if (udpViaProxy) "proxy" else "direct")
+            )
             // All remaining UDP — route through proxy ONLY when the tunnel can
             // actually carry it (mux/XUDP is on). For a bare WebSocket / other
             // un-muxed transport, UDP goes direct because the server cannot
@@ -371,7 +382,7 @@ object XrayConfigBuilder {
                     .put("ip", privateIps)
                     .put("outboundTag", "direct")
             )
-            // Route globally-routable IPv6 THROUGH THE PROXY. Viber keeps
+            // Route globally-routable IPv6 TCP THROUGH THE PROXY. Viber keeps
             // hardcoded IPv6 server addresses and tries them over every tunnel.
             //
             // Previous approaches failed:
@@ -381,17 +392,18 @@ object XrayConfigBuilder {
             //     fallback), but in China the GFW silently drops IPv6 to
             //     foreign servers → same timeout problem as "block".
             //
-            // "proxy" solves BOTH cases:
-            //   - Censored (China): IPv6 goes through the tunnel → GFW can't
+            // "proxy" for TCP solves BOTH cases:
+            //   - Censored (China): IPv6 TCP goes through the tunnel → GFW can't
             //     touch it → Viber connects successfully.
-            //   - Open networks: IPv6 goes through the tunnel → works fine.
-            //   - If the transport can't carry it (e.g. UDP over bare WS),
-            //     the proxy rejects it and Viber falls back to IPv4 quickly.
+            //   - Open networks: IPv6 TCP goes through the tunnel → works fine.
+            // UDP follows the udpViaProxy policy (direct for bare WS, proxy for
+            // muxed transports) so Viber's heartbeat ports work correctly.
             //
             // (Local/ULA/link-local v6 already went direct above.)
             rules.put(
                 JSONObject().put("type", "field")
                     .put("ip", JSONArray(listOf("::/0")))
+                    .put("network", "tcp")
                     .put("outboundTag", "proxy")
             )
             rules.put(
