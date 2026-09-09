@@ -371,6 +371,20 @@ object XrayConfigBuilder {
                     .put("ip", privateIps)
                     .put("outboundTag", "direct")
             )
+            // Block globally-routable IPv6 destinations routed as raw IPs.
+            // With an IPv4-only DNS strategy most apps never use IPv6, but
+            // Viber keeps hardcoded IPv6 server addresses and tries them over
+            // every tunnel. Through this Cloudflare-fronted vless-ws the IPv6
+            // path never completes (Viber retries every 0.5-6s -> clock icon,
+            // message stuck), while IPv4 works fine. sing-box clients don't hand
+            // IPv6 to the tunnel, so Viber falls back to IPv4 there and works.
+            // Blocking ::/0 makes Viber fail fast and fall back to IPv4 too.
+            // (Local/ULA/link-local v6 already went direct above.)
+            rules.put(
+                JSONObject().put("type", "field")
+                    .put("ip", JSONArray(listOf("::/0")))
+                    .put("outboundTag", "block")
+            )
             rules.put(
                 JSONObject().put("type", "field")
                     .put("network", "tcp,udp")
@@ -446,16 +460,14 @@ object XrayConfigBuilder {
                     val list = p.alpn.split(",").mapNotNull { it.trim().takeIf(String::isNotEmpty) }
                     if (list.isNotEmpty()) tls.put("alpn", JSONArray(list))
                 }
-                // ClientHello fragmentation defeats SNI-based DPI throttling
-                if (p.fragmentLength.isNotBlank() || p.fragmentPackets.isNotBlank()) {
-                    tls.put(
-                        "fragment",
-                        JSONObject()
-                            .put("packets", p.fragmentPackets.ifBlank { "tlshello" })
-                            .put("length", p.fragmentLength.ifBlank { "40-60" })
-                            .put("interval", p.fragmentInterval.ifBlank { "30-50" })
-                    )
-                }
+                // ClientHello fragmentation is DISABLED deliberately: sing-box
+                // based clients (LionBox/v2box, which the user's setup
+                // tolerates on the same Cloudflare-fronted server) cannot apply
+                // the fragment param and connect fine. Splitting every new
+                // ClientHello into 30-50ms chunks only adds latency to the
+                // rapid, short-lived sockets Viber opens (every 0.5-6s) and can
+                // queue the handshake at the CDN edge. Parity with the working
+                // clients means sending a single, unfragmented handshake.
                 s.put("tlsSettings", tls)
             }
             "reality" -> {
