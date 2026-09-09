@@ -371,19 +371,22 @@ object XrayConfigBuilder {
                     .put("ip", privateIps)
                     .put("outboundTag", "direct")
             )
-            // Block globally-routable IPv6 destinations routed as raw IPs.
-            // With an IPv4-only DNS strategy most apps never use IPv6, but
-            // Viber keeps hardcoded IPv6 server addresses and tries them over
-            // every tunnel. Through this Cloudflare-fronted vless-ws the IPv6
-            // path never completes (Viber retries every 0.5-6s -> clock icon,
-            // message stuck), while IPv4 works fine. sing-box clients don't hand
-            // IPv6 to the tunnel, so Viber falls back to IPv4 there and works.
-            // Blocking ::/0 makes Viber fail fast and fall back to IPv4 too.
+            // Route globally-routable IPv6 destinations DIRECT (not through the
+            // tunnel). Viber keeps hardcoded IPv6 server addresses and tries them
+            // over every tunnel. If we blackhole them (previous "block" rule),
+            // each attempt silently TIMES OUT (~10-30s each) and Viber stubbornly
+            // retries for ~2 minutes before falling back to IPv4.
+            //
+            // With "direct" the IPv6 packet goes out on the physical network:
+            //   - If the network supports IPv6 → it works (best case)
+            //   - If not → ICMP unreachable arrives immediately → Viber fails
+            //     fast and falls back to IPv4 instantly (<1s instead of ~2min)
+            //
             // (Local/ULA/link-local v6 already went direct above.)
             rules.put(
                 JSONObject().put("type", "field")
                     .put("ip", JSONArray(listOf("::/0")))
-                    .put("outboundTag", "block")
+                    .put("outboundTag", "direct")
             )
             rules.put(
                 JSONObject().put("type", "field")
