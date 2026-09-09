@@ -134,6 +134,36 @@ object XrayBridge {
         }
     }
 
+    /** Copies the core's access log (connection routing decisions) to Downloads. */
+    fun exportAccessLogToDownloads() {
+        val ctx = appContext ?: return
+        val src = ctx.getExternalFilesDir(null)?.let { java.io.File(it, "xray-access.log") }
+            ?: return
+        if (!src.exists() || src.length() < 1L) return
+        runCatching {
+            val resolver = ctx.contentResolver
+            resolver.delete(
+                android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                "${android.provider.MediaStore.Downloads.DISPLAY_NAME}=?",
+                arrayOf("LionRay_xray_access.log")
+            )
+            val values = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.Downloads.DISPLAY_NAME, "LionRay_xray_access.log")
+                put(android.provider.MediaStore.Downloads.MIME_TYPE, "text/plain")
+                put(
+                    android.provider.MediaStore.Downloads.RELATIVE_PATH,
+                    android.os.Environment.DIRECTORY_DOWNLOADS
+                )
+            }
+            val uri = resolver.insert(
+                android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values
+            ) ?: return@runCatching
+            resolver.openOutputStream(uri, "w")?.use { o ->
+                src.inputStream().use { it.copyTo(o) }
+            }
+        }
+    }
+
     @Volatile
     var listener: StatusListener? = null
 
@@ -279,6 +309,7 @@ object XrayBridge {
             runCatching { c.stopLoop() }
         }
         flushRuntimeLogToDownloads()
+        exportAccessLogToDownloads()
     }
 
     /**

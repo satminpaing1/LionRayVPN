@@ -47,11 +47,22 @@ object XrayConfigBuilder {
         p: ServerProfile,
         socksPort: Int = XrayBridge.SOCKS_PORT,
         routingMode: String = SettingsStore.MODE_GLOBAL,
-        dns: SettingsStore.Dns = SettingsStore.dnsPresets().first()
+        dns: SettingsStore.Dns = SettingsStore.dnsPresets().first(),
+        logFileDir: String? = null
     ): String {
         val dnsDirectIps = if (dns.domestic) dns.servers else emptyList()
         val root = JSONObject()
-        root.put("log", JSONObject().put("loglevel", "info"))
+        val log = JSONObject().put("loglevel", "info")
+        // When a writable directory is supplied the core writes a full access
+        // log (every connection: source -> dest -> routing decision) and an
+        // error log to disk. onEmitStatus in AndroidLibXrayLite only surfaces
+        // lifecycle events, so this is the ONLY way to see Viber's actual
+        // connection attempts and which rule they matched.
+        if (logFileDir != null) {
+            log.put("access", java.io.File(logFileDir, "xray-access.log").absolutePath)
+            log.put("error", java.io.File(logFileDir, "xray-error.log").absolutePath)
+        }
+        root.put("log", log)
 
         // Built-in DNS module: intercepts the app's raw UDP:53 queries at the
         // TUN and re-resolves them over HTTPS/TCP (DoH) through the proxy.

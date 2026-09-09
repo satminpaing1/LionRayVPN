@@ -347,11 +347,19 @@ class LionRayVpnService : VpnService() {
             }
             XrayConfigBuilder.bypassDomains = SettingsStore.bypassDomains(applicationContext)
             XrayConfigBuilder.voipViaProxy = SettingsStore.voipViaVpn(applicationContext)
+            // fresh access/error logs for this session (diagnostics)
+            runCatching {
+                getExternalFilesDir(null)?.let { d ->
+                    listOf(java.io.File(d, "xray-access.log"), java.io.File(d, "xray-error.log"))
+                        .forEach { if (it.exists()) it.delete() }
+                }
+            }
             XrayConfigBuilder.build(
                 profile,
                 XrayBridge.SOCKS_PORT,
                 mode,
-                dns
+                dns,
+                getExternalFilesDir(null)?.absolutePath
             )
         }
         // Keep a copy for debugging (Android/data/com.lionray.vpn/files/)
