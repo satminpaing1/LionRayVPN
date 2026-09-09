@@ -195,36 +195,6 @@ object XrayConfigBuilder {
             proxy.put("mux", JSONObject().put("enabled", true).put("concurrency", -1))
         }
 
-        // TLS ClientHello fragmentation through a dedicated freedom dialer.
-        // Splits the handshake into small chunks so DPI-based blocking can't
-        // fingerprint the vless-ws TLS handshake and reset the connection —
-        // a common cause of Viber messaging/calls failing on a
-        // Cloudflare-fronted ws server. The proxy outbound dials through
-        // fragment-out so every new TLS connection (Viber opens one every
-        // 0.5-6s) gets a fragmented handshake.
-        val fragment = JSONObject()
-            .put("tag", "fragment-out")
-            .put("protocol", "freedom")
-            .put(
-                "settings",
-                JSONObject().put(
-                    "fragment",
-                    JSONObject()
-                        .put("packets", "tlshello")
-                        .put("length", "40-60")
-                        .put("interval", "30-50")
-                )
-            )
-            .put(
-                "streamSettings",
-                JSONObject().put(
-                    "sockopt",
-                    JSONObject().put("tcpNoDelay", true)
-                )
-            )
-        proxy.getJSONObject("streamSettings")
-            .put("sockopt", JSONObject().put("dialerProxy", "fragment-out"))
-
         val direct = JSONObject()
             .put("tag", "direct")
             .put("protocol", "freedom")
@@ -241,7 +211,7 @@ object XrayConfigBuilder {
             .put("protocol", "dns")
             .put("settings", JSONObject())
 
-        root.put("outbounds", JSONArray().put(proxy).put(fragment).put(direct).put(block).put(dnsOut))
+        root.put("outbounds", JSONArray().put(proxy).put(direct).put(block).put(dnsOut))
 
         // ---------------- routing ----------------
         val privateIps = JSONArray(
@@ -341,9 +311,7 @@ object XrayConfigBuilder {
                     val list = p.alpn.split(",").mapNotNull { it.trim().takeIf(String::isNotEmpty) }
                     if (list.isNotEmpty()) tls.put("alpn", JSONArray(list))
                 }
-                // ClientHello fragmentation happens at the DIAL level through
-                // the "fragment-out" freedom dialer (see build()), so no inline
-                // tlsSettings fragment is needed here.
+                // Plain TLS client; no inline handshake fragmentation.
                 s.put("tlsSettings", tls)
             }
             "reality" -> {
