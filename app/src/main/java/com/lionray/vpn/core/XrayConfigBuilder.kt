@@ -51,7 +51,7 @@ object XrayConfigBuilder {
         logFileDir: String? = null
     ): String {
         val root = JSONObject()
-        val log = JSONObject().put("loglevel", "info")
+        val log = JSONObject().put("loglevel", "warning")
         // When a writable directory is supplied the core writes a full access
         // log (every connection: source -> dest -> routing decision) and an
         // error log to disk. onEmitStatus in AndroidLibXrayLite only surfaces
@@ -63,18 +63,15 @@ object XrayConfigBuilder {
         }
         root.put("log", log)
 
-        // Built-in DNS module: intercepts the app's raw UDP:53 queries at the
-        // TUN and re-resolves them over HTTPS/TCP (DoH) through the proxy.
-        // CRITICAL for Cloudflare-fronted (vless-ws) servers which cannot relay
-        // raw UDP through the WebSocket tunnel — without this, Viber/WhatsApp
-        // system-DNS lookups silently die and messaging fails even though the
-        // tunnel itself is fine.
+        // Built-in DNS module: DoH via the tunnel (censorship-resistant),
+        // "localhost" as the final fallback uses the system resolver. No
+        // dns-out rule — the DoH requests flow through the proxy rule like
+        // any other HTTPS traffic, exactly like the v2box reference config.
         root.put(
             "dns",
             JSONObject()
                 .put("queryStrategy", "UseIPv4")
-                .put("disableCache", true)
-                .put("servers", JSONArray(mixedDnsServers(dns.key)))
+                .put("servers", JSONArray(dohUrls(dns.key) + "localhost"))
         )
 
         // Traffic byte counters for the speed / usage read-out. The in-process
@@ -93,7 +90,7 @@ object XrayConfigBuilder {
         // ---------------- inbounds ----------------
         val sniffing = JSONObject()
             .put("enabled", true)
-            .put("destOverride", JSONArray(listOf("http", "tls", "quic")))
+            .put("destOverride", JSONArray(listOf("http", "tls")))
             .put("routeOnly", false)
 
         val socksInbound = JSONObject()
@@ -109,7 +106,7 @@ object XrayConfigBuilder {
 
         // The fd handed to Libv2ray.startLoop is wired into this inbound.
         val tunInbound = JSONObject()
-            .put("tag", "tun")
+            .put("tag", "tun-in")
             .put("protocol", "tun")
             .put(
                 "settings",
@@ -117,6 +114,8 @@ object XrayConfigBuilder {
                     .put("name", "xray0")
                     .put("MTU", XrayBridge.MTU)
                     .put("userLevel", 8)
+                    .put("autoRoute", true)
+                    .put("strictRoute", true)
             )
             .put("sniffing", sniffing)
 
@@ -203,42 +202,24 @@ object XrayConfigBuilder {
             .put("tag", "block")
             .put("protocol", "blackhole")
             .put("settings", JSONObject())
-        // Internal outbound consumed by the DNS module (routing rule below
-        // sends the app's port-53 packets here, the core resolves them via
-        // the configured DoH servers and answers through the TUN).
-        val dnsOut = JSONObject()
-            .put("tag", "dns-out")
-            .put("protocol", "dns")
-            .put("settings", JSONObject())
-
-        root.put("outbounds", JSONArray().put(proxy).put(direct).put(block).put(dnsOut))
+        // Outbounds: proxy (the tunnel), direct, block. No dns-out outbound — with
+        // the v2box-style DNS above (DoH + localhost) none is needed.
+        root.put("outbounds", JSONArray().put(proxy).put(direct).put(block))
 
         // ---------------- routing ----------------
-        val privateIps = JSONArray(
-            listOf(
-                "127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
-                "169.254.0.0/16", "100.64.0.0/10", "224.0.0.0/3",
-                "::1/128", "fc00::/7", "fe80::/10"
-            )
-        )
         val rules = JSONArray()
 
-        // Built-in DNS module: the app's port-53 packets go to the internal
-        // resolver which answers via DoH (TCP) through the tunnel.
+        // Private/loopback ranges stay on the device — geoip:private covers all
+        // RFC1918 + IPv6 ULA ranges (v2box reference config).
         rules.put(
             JSONObject().put("type", "field")
-                .put("port", 53)
-                .put("outboundTag", "dns-out")
-        )
-        // Private/loopback ranges stay on the device.
-        rules.put(
-            JSONObject().put("type", "field")
-                .put("ip", privateIps)
                 .put("outboundTag", "direct")
+                .put("ip", JSONArray(listOf("geoip:private")))
         )
         // Everything else routes through the tunnel.
         rules.put(
             JSONObject().put("type", "field")
+                .put("port", "0-65535")
                 .put("network", "tcp,udp")
                 .put("outboundTag", "proxy")
         )
@@ -246,7 +227,7 @@ object XrayConfigBuilder {
         root.put(
             "routing",
             JSONObject()
-                .put("domainStrategy", "AsIs")
+                .put("domainStrategy", "IPIfNonMatch")
                 .put("rules", rules)
         )
 
@@ -254,40 +235,10 @@ object XrayConfigBuilder {
     }
 
     /**
-     * Mixed DNS servers: direct UDP FIRST (instant, bypasses tunnel), DoH as
-     * fallback (censorship-resistant, through tunnel).
-     *
-     * Problem: on VPN reconnect, Viber aggressively reconnects before the new
-     * tunnel is ready. DoH needs the tunnel (~200-500ms), times out, Viber gives
-     * up before UDP fallback is tried. Other apps have longer retries so they
-     * survive.
-     *
-     * Fix: UDP first → resolves in ~10ms via phone's network (Xray excluded from
-     * VPN). DoH only if UDP fails (censored networks).
-     *
-     * Also disable DNS cache ("disableCache": true) so reconnect always gets fresh
-     * resolution — stale cache from previous tunnel session can cause issues.
+     * DoH server URLs per DNS preset — the first is primary, the rest are
+     * fallbacks. "localhost" is appended by build() so the core can fall back
+     * to the Android system resolver if both DoH endpoints are unreachable.
      */
-    private fun mixedDnsServers(key: String): List<Any> {
-        val udp = directIp(key)
-        val doh = dohUrls(key)
-        val result = mutableListOf<Any>()
-        // UDP first: instant, bypasses tunnel (Xray process excluded from VPN)
-        result.add(udp)
-        // DoH fallback: censorship-resistant, through the tunnel
-        result.addAll(doh)
-        return result
-    }
-
-    private fun directIp(key: String): String = when (key) {
-        "cloudflare" -> "1.1.1.1"
-        "google" -> "8.8.8.8"
-        "alidns" -> "223.5.5.5"
-        "dnspod" -> "119.29.29.29"
-        "opendns" -> "208.67.222.222"
-        else -> "1.1.1.1"
-    }
-
     private fun dohUrls(key: String): List<String> = when (key) {
         "cloudflare" -> listOf("https://1.1.1.1/dns-query", "https://1.0.0.1/dns-query")
         "google" -> listOf("https://8.8.8.8/dns-query", "https://8.8.4.4/dns-query")
