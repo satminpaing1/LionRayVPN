@@ -368,12 +368,7 @@ class LionRayVpnService : VpnService() {
             if (mode == SettingsStore.MODE_SPLIT_CN && XrayConfigBuilder.cnDomains.isEmpty()) {
                 XrayConfigBuilder.cnDomains = loadCnDomains()
             }
-            XrayConfigBuilder.adBlock = SettingsStore.adBlock(applicationContext)
-            if (XrayConfigBuilder.adBlock && XrayConfigBuilder.adDomains.isEmpty()) {
-                XrayConfigBuilder.adDomains = loadListFromAssets("ad_domains.txt")
-            }
             XrayConfigBuilder.bypassDomains = SettingsStore.bypassDomains(applicationContext)
-            XrayConfigBuilder.voipViaProxy = SettingsStore.voipViaVpn(applicationContext)
             // fresh access/error logs for this session (diagnostics)
             runCatching {
                 getExternalFilesDir(null)?.let { d ->

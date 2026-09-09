@@ -472,9 +472,6 @@ class MainActivity : AppCompatActivity() {
                 launch {
                     VpnBus.usage.collect { renderUsage(it) }
                 }
-                launch {
-                    VpnBus.blockedCount.collect { renderBlocked(it) }
-                }
             }
         }
     }
@@ -495,13 +492,6 @@ class MainActivity : AppCompatActivity() {
                 android.view.View.VISIBLE else android.view.View.GONE
         findViewById<android.widget.TextView>(R.id.tvUsage)?.text =
             "⬇ ${humanBytes(u.downBytes)}   ⬆ ${humanBytes(u.upBytes)}"
-    }
-
-    private fun renderBlocked(n: Long) {
-        val tv = findViewById<android.widget.TextView>(R.id.pillAdBlock) ?: return
-        val on = SettingsStore.adBlock(this)
-        tv.text = if (on && n > 0) "🚫 " + getString(R.string.ads_blocked_fmt, n)
-                  else pillText("🚫", R.string.ad_blocker, on)
     }
 
     private fun pillText(icon: String, labelRes: Int, on: Boolean): String =
@@ -531,7 +521,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshProtectionPills() {
-        renderBlocked(VpnBus.blockedCount.value)
         findViewById<android.widget.TextView>(R.id.pillAutoReconnect)?.text =
             pillText("🔄", R.string.auto_reconnect, SettingsStore.autoReconnect(this))
     }
