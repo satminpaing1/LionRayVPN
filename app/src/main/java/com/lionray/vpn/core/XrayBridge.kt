@@ -43,7 +43,7 @@ object XrayBridge {
     const val BUNDLED_XRAY_VERSION = ""
 
     /** TUN & VpnService MTU — must match the config's tun inbound MTU. */
-    const val MTU = 1500
+    const val MTU = 1350
 
     /** Internal TUN interface addresses (used only as the tunnel gateway). */
     const val VPN_IPV4 = "26.26.26.1"

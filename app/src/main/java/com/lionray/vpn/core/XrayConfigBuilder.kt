@@ -189,6 +189,13 @@ object XrayConfigBuilder {
         // ---------------- routing ----------------
         val rules = JSONArray()
 
+        // All IPv6 is dropped — forces everything onto IPv4 and prevents
+        // half-open v6 connections from stalling apps (v2box reference config).
+        rules.put(
+            JSONObject().put("type", "field")
+                .put("ip", JSONArray(listOf("::/0")))
+                .put("outboundTag", "block")
+        )
         // App DNS queries go to the built-in resolver (UDP then TCP).
         rules.put(
             JSONObject().put("type", "field")
