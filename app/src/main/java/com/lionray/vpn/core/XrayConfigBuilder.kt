@@ -371,19 +371,28 @@ object XrayConfigBuilder {
                     .put("ip", privateIps)
                     .put("outboundTag", "direct")
             )
-            // Block globally-routable IPv6 destinations routed as raw IPs.
-            // With an IPv4-only DNS strategy most apps never use IPv6, but
-            // Viber keeps hardcoded IPv6 server addresses and tries them over
-            // every tunnel. Through this Cloudflare-fronted vless-ws the IPv6
-            // path never completes (Viber retries every 0.5-6s -> clock icon,
-            // message stuck), while IPv4 works fine. sing-box clients don't hand
-            // IPv6 to the tunnel, so Viber falls back to IPv4 there and works.
-            // Blocking ::/0 makes Viber fail fast and fall back to IPv4 too.
+            // Route globally-routable IPv6 THROUGH THE PROXY. Viber keeps
+            // hardcoded IPv6 server addresses and tries them over every tunnel.
+            //
+            // Previous approaches failed:
+            //   - "block" (blackhole): silent timeout (~10-30s each), Viber
+            //     retries for ~2 minutes before IPv4 fallback.
+            //   - "direct": works in open networks (ICMP unreachable → fast
+            //     fallback), but in China the GFW silently drops IPv6 to
+            //     foreign servers → same timeout problem as "block".
+            //
+            // "proxy" solves BOTH cases:
+            //   - Censored (China): IPv6 goes through the tunnel → GFW can't
+            //     touch it → Viber connects successfully.
+            //   - Open networks: IPv6 goes through the tunnel → works fine.
+            //   - If the transport can't carry it (e.g. UDP over bare WS),
+            //     the proxy rejects it and Viber falls back to IPv4 quickly.
+            //
             // (Local/ULA/link-local v6 already went direct above.)
             rules.put(
                 JSONObject().put("type", "field")
                     .put("ip", JSONArray(listOf("::/0")))
-                    .put("outboundTag", "block")
+                    .put("outboundTag", "proxy")
             )
             rules.put(
                 JSONObject().put("type", "field")
