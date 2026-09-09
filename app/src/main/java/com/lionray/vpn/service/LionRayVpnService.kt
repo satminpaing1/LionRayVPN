@@ -482,8 +482,12 @@ class LionRayVpnService : VpnService() {
             } catch (_: Exception) {
             }
         }
+        // Blocking mode: anything NOT routed into the VPN (IPv6, which has no
+        // ::/0 route) is DROPPED instead of bypassing through the phone's own
+        // connection. This is what keeps the tunnel IPv4-only — with blocking
+        // off, IPv6 parts of apps would ride the physical network and leak out.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            builder.setBlocking(false)
+            builder.setBlocking(true)
         }
         return builder.establish()
     }
