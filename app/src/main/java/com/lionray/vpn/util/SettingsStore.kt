@@ -121,10 +121,12 @@ object SettingsStore {
      * TLS-fragment tuning. fragmentEnabled=false disables TLS fragmentation
      * even when the URI carries fragment=...; the length/interval strings are
      * user overrides — blank means "follow the URI's own values".
+     * Default OFF: edgetunnel-style Worker relays often can't tolerate the
+     * paced TLS hello and the whole connection dies.
      */
     fun fragmentEnabled(ctx: Context): Boolean =
         ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
-            .getBoolean("fragment_enabled", true)
+            .getBoolean("fragment_enabled", false)
 
     fun setFragmentEnabled(ctx: Context, on: Boolean) {
         ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)

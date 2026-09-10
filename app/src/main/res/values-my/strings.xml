@@ -237,7 +237,7 @@
     <string name="ipv6_enabled">IPv6 ကို Tunnel ဖြင့် သွားရန်</string>
     <string name="ipv6_enabled_sub">OFF (default) = IPv6 အားလုံး ပိတ်ထားသည် (leak မဖြစ်). ON = IPv6 route/address ထည့်ပြီး tunnel ကနေ ပို့သည် (IPv6 ရတဲ့ server နဲ့ တွဲသုံးပါ)</string>
     <string name="fragment_title">TLS Fragment</string>
-    <string name="fragment_tune_sub">ON = TLS ClientHello ကို ခွဲပို့ပြီး GFW DPI မှ ရှောင်သည်။ Length/Interval ဗလာ = မင်းရဲ့ URI က တန်ဖိုးကို သုံးသည်</string>
+    <string name="fragment_tune_sub">OFF (default) = plain TLS, Worker link အတွက် လုံခြုံဆုံး. ON = TLS hello ကို ခွဲပို့ပြီး GFW DPI မှ ရှောင်သည်; ခံနိုင်တဲ့ link နဲ့သာ သုံးပါ</string>
     <string name="fragment_length_hint">Length (URI မှ ယူရန် ဗလာ ထားပါ၊ ဥပမာ 40-60)</string>
     <string name="fragment_interval_hint">Interval ms (URI မှ ယူရန် ဗလာ ထားပါ၊ ဥပမာ 30-50)</string>
     <string name="mux_title">Mux (stream ပြန်သုံး)</string>

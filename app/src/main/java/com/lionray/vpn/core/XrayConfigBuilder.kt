@@ -183,7 +183,8 @@ object XrayConfigBuilder {
         // connections (no per-connection TLS handshake = much faster). Only
         // servers that understand mux framing can decode it, so it stays OFF
         // unless the user (or their URI's mux= param) asks for it.
-        if (mux || p.muxEnabled) {
+        val muxOn = mux || p.muxEnabled
+        if (muxOn) {
             proxy.put("mux", JSONObject().put("enabled", true).put("concurrency", 8))
         }
 
@@ -193,9 +194,12 @@ object XrayConfigBuilder {
         // handshake — needed to keep China links alive past the GFW.
         // Settings override: the ON/OFF switch plus custom length/interval;
         // blank values fall back to the URI's own fragment=... parameters.
+        // NOTE: fragment is auto-off when mux is on — fragmenting the hello of
+        // a muxed tunnel breaks the mux framing at the relay.
         val fragLength = fragmentLength.ifBlank { p.fragmentLength }
         val fragInterval = fragmentInterval.ifBlank { p.fragmentInterval }
-        val useFragment = fragmentEnabled && fragLength.isNotBlank() && fragInterval.isNotBlank()
+        val useFragment = fragmentEnabled && !muxOn &&
+            fragLength.isNotBlank() && fragInterval.isNotBlank()
 
         val direct = JSONObject()
             .put("tag", "direct")
