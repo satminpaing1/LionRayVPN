@@ -823,11 +823,38 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startVpnService() {
-        // connect straight away; battery keep-alive is opt-in via the
-        // green button in Settings — nothing pops up on connect
+        promptBatteryOnce()
+        // connect straight away; the battery prompt above is a single,
+        // non-recurring popup — nothing else shows on connect
         val i = Intent(this, LionRayVpnService::class.java)
             .setAction(LionRayVpnService.ACTION_START)
         ContextCompat.startForegroundService(this, i)
+    }
+
+    /** Ask once (System Settings) to exempt the VPN from battery sleep so the
+     *  tunnel can't be frozen mid-use; never nags again after the first tap. */
+    private fun promptBatteryOnce() {
+        try {
+            val pm = getSystemService(android.os.PowerManager::class.java)
+            val pkg = packageName
+            if (!SettingsStore.hasPromptedBattery(this) &&
+                pm != null && !pm.isIgnoringBatteryOptimizations(pkg)
+            ) {
+                SettingsStore.setBatteryPrompted(this)
+                try {
+                    startActivity(
+                        android.content.Intent(
+                            android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                            android.net.Uri.parse("package:$pkg")
+                        )
+                    )
+                } catch (_: Throwable) {
+                    // user denied/permission missing — fall through, tunnel still runs
+                }
+            }
+        } catch (_: Throwable) {
+            // should never happen on a normal device
+        }
     }
 
     private fun sendStop() {

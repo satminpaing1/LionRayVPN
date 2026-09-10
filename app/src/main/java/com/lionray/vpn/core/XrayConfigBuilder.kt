@@ -210,7 +210,13 @@ object XrayConfigBuilder {
             .put("protocol", "blackhole")
             .put("settings", JSONObject())
         val outbounds = JSONArray().put(proxy).put(direct).put(block)
+        // Client-side socket tuning on every tunnel: TCP_NODELAY kills the
+        // Nagle latency and TFO shaves a round-trip off new connections —
+        // both safe with Worker relays (purely local optimization).
+        val proxySock = JSONObject().put("tcpNoDelay", true).put("tcpFastOpen", true)
         if (useFragment) {
+            // TLS-fragment dialer re-creates the hello through a freedom
+            // outbound; the proxy just hands that dialing off to it.
             val fragmentOut = JSONObject()
                 .put("tag", "fragment-out")
                 .put("protocol", "freedom")
@@ -228,10 +234,10 @@ object XrayConfigBuilder {
                     "streamSettings",
                     JSONObject().put("sockopt", JSONObject().put("tcpNoDelay", true))
                 )
-            proxy.getJSONObject("streamSettings")
-                .put("sockopt", JSONObject().put("dialerProxy", "fragment-out"))
+            proxySock.put("dialerProxy", "fragment-out")
             outbounds.put(1, fragmentOut)
         }
+        proxy.getJSONObject("streamSettings").put("sockopt", proxySock)
         // No dns-out — DNS goes straight out of the phone's own network
         // (port-53 rule sends it to direct) while FakeDNS answers the apps.
         root.put("outbounds", outbounds)
