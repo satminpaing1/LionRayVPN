@@ -1,10 +1,6 @@
 package com.lionray.vpn.data
 
-import android.content.ContentUris
-import android.content.ContentValues
 import android.content.Context
-import android.os.Environment
-import android.provider.MediaStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.json.JSONArray
 import java.io.File
@@ -12,6 +8,8 @@ import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Simple JSON-file backed profile storage with StateFlow observability.
+ * Keys are kept ONLY inside the app's private storage (filesDir + a
+ * SharedPreferences mirror) — nothing is written to public Downloads.
  */
 object ProfileStore {
 
@@ -19,7 +17,6 @@ object ProfileStore {
     private const val KEY_ACTIVE_ID = "active_id"
     private const val FILE_NAME = "profiles.json"
     private const val KEY_MIRROR = "profiles_mirror_json"
-    private const val BACKUP_NAME = "lionray_profiles_backup.txt"
 
     private var appContext: Context? = null
     private lateinit var file: File
@@ -165,57 +162,32 @@ object ProfileStore {
         }
 
         try {
-            val restored = if (file.exists() && parse(file.readText())) {
-                if (list.isEmpty()) restoreFromDownloads()?.let { parse(it) } == true
-                else false
+            if (file.exists() && parse(file.readText())) {
+                if (list.isEmpty()) {
+                    // valid file but empty list → prefer the SharedPreferences mirror
+                    prefs.getString(KEY_MIRROR, "").orEmpty()
+                        .takeIf { it.isNotBlank() && parse(it) }
+                        .also { if (it != null) changed = true }
+                }
             } else {
-                // primary file missing/corrupt → try mirror → Downloads backup
+                // primary file missing/corrupt → restore from SharedPreferences mirror
                 val prefMirror = prefs.getString(KEY_MIRROR, "").orEmpty()
-                if (!prefMirror.isBlank() && parse(prefMirror)) {
+                if (prefMirror.isBlank() || !parse(prefMirror)) {
+                    // nothing valid on disk → start empty
+                    list.clear()
                     changed = true
-                    false
                 } else {
-                    restoreFromDownloads()?.let { parse(it) } == true
+                    changed = true
                 }
             }
             activeId.value = prefs.getLong(KEY_ACTIVE_ID, 0L)
             // repaired ids / recovered data → write back to detect future loss
-            if (changed || restored) persist()
+            if (changed) persist()
             publish(list)
         } catch (t: Throwable) {
             publish(emptyList())
         }
     }
-
-    /**
-     * Reads the durable Downloads mirror (survives uninstall/reinstall) and
-     * returns its JSON text, or null when no valid backup exists.
-     */
-    private fun restoreFromDownloads(): String? = runCatching {
-        val ctx = appContext ?: return null
-        val resolver = ctx.contentResolver
-        val projection = arrayOf(MediaStore.Downloads._ID)
-        val c = resolver.query(
-            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-            projection,
-            "${MediaStore.Downloads.DISPLAY_NAME}=?",
-            arrayOf(BACKUP_NAME),
-            null
-        ) ?: return null
-        var text: String? = null
-        c.use { cur ->
-            if (cur.moveToFirst()) {
-                val id = cur.getLong(0)
-                val uri = ContentUris.withAppendedId(
-                    MediaStore.Downloads.EXTERNAL_CONTENT_URI, id
-                )
-                text = runCatching {
-                    resolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-                }.getOrNull()
-            }
-        }
-        text
-    }.getOrNull()
 
     private fun persist() {
         try {
@@ -230,31 +202,7 @@ object ProfileStore {
 
             // redundant mirror inside SharedPreferences (survives a corrupt/partial write)
             runCatching { prefs.edit().putString(KEY_MIRROR, text).apply() }
-
-            // durable mirror in public Downloads (survives uninstall/reinstall)
-            runCatching { writeDownloadsMirror(text) }
         } catch (_: Throwable) {
         }
-    }
-
-    private fun writeDownloadsMirror(text: String) {
-        val ctx = appContext ?: return
-        val resolver = ctx.contentResolver
-        resolver.delete(
-            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-            "${MediaStore.Downloads.DISPLAY_NAME}=?",
-            arrayOf(BACKUP_NAME)
-        )
-        val values = ContentValues().apply {
-            put(MediaStore.Downloads.DISPLAY_NAME, BACKUP_NAME)
-            put(MediaStore.Downloads.MIME_TYPE, "application/json")
-            put(
-                MediaStore.Downloads.RELATIVE_PATH,
-                Environment.DIRECTORY_DOWNLOADS
-            )
-        }
-        val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-            ?: return
-        resolver.openOutputStream(uri, "w")?.use { it.write(text.toByteArray()) }
     }
 }

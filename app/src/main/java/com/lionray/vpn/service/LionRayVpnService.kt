@@ -369,9 +369,10 @@ class LionRayVpnService : VpnService() {
                 XrayConfigBuilder.cnDomains = loadCnDomains()
             }
             XrayConfigBuilder.bypassDomains = SettingsStore.bypassDomains(applicationContext)
-            // fresh access/error logs for this session (diagnostics)
+            // fresh access/error logs for this session, kept in app-internal
+            // storage only (invisible to the file manager)
             runCatching {
-                getExternalFilesDir(null)?.let { d ->
+                filesDir.let { d ->
                     listOf(java.io.File(d, "xray-access.log"), java.io.File(d, "xray-error.log"))
                         .forEach { if (it.exists()) it.delete() }
                 }
@@ -381,15 +382,10 @@ class LionRayVpnService : VpnService() {
                 XrayBridge.SOCKS_PORT,
                 mode,
                 dns,
-                getExternalFilesDir(null)?.absolutePath,
+                filesDir.absolutePath,
                 SettingsStore.voipViaVpn(applicationContext),
                 SettingsStore.ipv6Enabled(applicationContext)
             )
-        }
-        // Keep a copy for debugging (Android/data/com.lionray.vpn/files/)
-        runCatching {
-            val dir = getExternalFilesDir(null)
-            java.io.File(dir, "last_config.json").writeText(config)
         }
         lastConfig = config
         armNetworkWatcher()
@@ -524,8 +520,7 @@ class LionRayVpnService : VpnService() {
         VpnBus.statusMessage.value = message
         VpnBus.state.value = VpnState.ERROR
         runCatching {
-            val dir = getExternalFilesDir(null)
-            java.io.File(dir, "last_error.txt").writeText(
+            java.io.File(filesDir, "last_error.txt").writeText(
                 "time: ${System.currentTimeMillis()}\nprofile: ${ProfileStore.activeProfile()?.toShareUri().orEmpty()}\nerror:\n$message\n"
             )
         }

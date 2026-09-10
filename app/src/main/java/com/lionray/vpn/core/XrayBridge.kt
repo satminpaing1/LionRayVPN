@@ -68,10 +68,7 @@ object XrayBridge {
     fun blockedCount(): Long = blocked.get()
     fun resetBlocked() = blocked.set(0)
 
-    // ---- runtime log capture (diagnostics) --------------------------------
-    /** Name of the public-Downloads copy of the runtime log the user can share. */
-    const val RUNTIME_LOG_NAME = "LionRay_xray_runtime.log"
-
+    // ---- runtime log capture (diagnostics, in-memory only) ----------------
     @Volatile private var runtimeLog = StringBuilder()
     private val runtimeLock = Any()
     private var runtimeLines = 0
@@ -102,96 +99,6 @@ object XrayBridge {
     fun resetRuntimeLog() = synchronized(runtimeLock) {
         runtimeLog = StringBuilder()
         runtimeLines = 0
-    }
-
-    /**
-     * Publishes the accumulated core log into public Downloads via MediaStore,
-     * so the user can share it from the Files app without ADB. Called on stop.
-     */
-    fun flushRuntimeLogToDownloads() {
-        val ctx = appContext ?: return
-        val text = peekRuntimeLog()
-        if (text.isBlank()) return
-        runCatching {
-            val resolver = ctx.contentResolver
-            resolver.delete(
-                android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                "${android.provider.MediaStore.Downloads.DISPLAY_NAME}=?",
-                arrayOf(RUNTIME_LOG_NAME)
-            )
-            val values = android.content.ContentValues().apply {
-                put(android.provider.MediaStore.Downloads.DISPLAY_NAME, RUNTIME_LOG_NAME)
-                put(android.provider.MediaStore.Downloads.MIME_TYPE, "text/plain")
-                put(
-                    android.provider.MediaStore.Downloads.RELATIVE_PATH,
-                    android.os.Environment.DIRECTORY_DOWNLOADS
-                )
-            }
-            val uri = resolver.insert(
-                android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values
-            ) ?: return@runCatching
-            resolver.openOutputStream(uri, "w")?.use { it.write(text.toByteArray()) }
-        }
-    }
-
-    /** Copies the core's access log (connection routing decisions) to Downloads. */
-    fun exportAccessLogToDownloads() {
-        val ctx = appContext ?: return
-        val src = ctx.getExternalFilesDir(null)?.let { java.io.File(it, "xray-access.log") }
-            ?: return
-        if (!src.exists() || src.length() < 1L) return
-        runCatching {
-            val resolver = ctx.contentResolver
-            resolver.delete(
-                android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                "${android.provider.MediaStore.Downloads.DISPLAY_NAME}=?",
-                arrayOf("LionRay_xray_access.log")
-            )
-            val values = android.content.ContentValues().apply {
-                put(android.provider.MediaStore.Downloads.DISPLAY_NAME, "LionRay_xray_access.log")
-                put(android.provider.MediaStore.Downloads.MIME_TYPE, "text/plain")
-                put(
-                    android.provider.MediaStore.Downloads.RELATIVE_PATH,
-                    android.os.Environment.DIRECTORY_DOWNLOADS
-                )
-            }
-            val uri = resolver.insert(
-                android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values
-            ) ?: return@runCatching
-            resolver.openOutputStream(uri, "w")?.use { o ->
-                src.inputStream().use { it.copyTo(o) }
-            }
-        }
-    }
-
-    /** Copies the core's analytics log (real dial/handshake failures) to Downloads. */
-    fun exportErrorLogToDownloads() {
-        val ctx = appContext ?: return
-        val src = ctx.getExternalFilesDir(null)?.let { java.io.File(it, "xray-error.log") }
-            ?: return
-        if (!src.exists() || src.length() < 1L) return
-        runCatching {
-            val resolver = ctx.contentResolver
-            resolver.delete(
-                android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                "${android.provider.MediaStore.Downloads.DISPLAY_NAME}=?",
-                arrayOf("LionRay_xray_error.log")
-            )
-            val values = android.content.ContentValues().apply {
-                put(android.provider.MediaStore.Downloads.DISPLAY_NAME, "LionRay_xray_error.log")
-                put(android.provider.MediaStore.Downloads.MIME_TYPE, "text/plain")
-                put(
-                    android.provider.MediaStore.Downloads.RELATIVE_PATH,
-                    android.os.Environment.DIRECTORY_DOWNLOADS
-                )
-            }
-            val uri = resolver.insert(
-                android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values
-            ) ?: return@runCatching
-            resolver.openOutputStream(uri, "w")?.use { o ->
-                src.inputStream().use { it.copyTo(o) }
-            }
-        }
     }
 
     @Volatile
@@ -314,10 +221,10 @@ object XrayBridge {
         }
     }
 
-    /** Persist the last error to external files so it can be pulled for diagnosis. */
+    /** Persist the last error to app-internal storage (invisible to the user). */
     private fun dumpError(msg: String) {
         runCatching {
-            val dir = appContext?.getExternalFilesDir(null) ?: return
+            val dir = appContext?.filesDir ?: return
             val abi = android.os.Build.SUPPORTED_ABIS?.joinToString(",") ?: "?"
             val header = buildString {
                 append("time: ")
@@ -338,9 +245,6 @@ object XrayBridge {
             isRunning = false
             runCatching { c.stopLoop() }
         }
-        flushRuntimeLogToDownloads()
-        exportAccessLogToDownloads()
-        exportErrorLogToDownloads()
     }
 
     /**
