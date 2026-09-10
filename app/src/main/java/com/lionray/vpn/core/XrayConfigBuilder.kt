@@ -178,6 +178,12 @@ object XrayConfigBuilder {
             proxy.put("mux", JSONObject().put("enabled", true).put("concurrency", -1))
         }
 
+        // TLS ClientHello fragmentation (profile fragment=1,40-60,30-50,tlshello):
+        // the proxy dials through a dedicated freedom outbound that splits the
+        // TLS hello into small chunks so DPI can't fingerprint/block the ws
+        // handshake — needed to keep China links alive past the GFW.
+        val useFragment = p.fragmentPackets.isNotBlank() || p.fragmentLength.isNotBlank()
+
         val direct = JSONObject()
             .put("tag", "direct")
             .put("protocol", "freedom")
@@ -186,10 +192,32 @@ object XrayConfigBuilder {
             .put("tag", "block")
             .put("protocol", "blackhole")
             .put("settings", JSONObject())
-        // Outbounds: proxy (the tunnel), direct, block. No dns-out — DNS goes
-        // straight out of the phone's own network (port-53 rule sends it to
-        // direct) while FakeDNS answers the apps locally.
-        root.put("outbounds", JSONArray().put(proxy).put(direct).put(block))
+        val outbounds = JSONArray().put(proxy).put(direct).put(block)
+        if (useFragment) {
+            val fragmentOut = JSONObject()
+                .put("tag", "fragment-out")
+                .put("protocol", "freedom")
+                .put(
+                    "settings",
+                    JSONObject().put(
+                        "fragment",
+                        JSONObject()
+                            .put("packets", p.fragmentPackets.ifBlank { "tlshello" })
+                            .put("length", p.fragmentLength.ifBlank { "40-60" })
+                            .put("interval", p.fragmentInterval.ifBlank { "30-50" })
+                    )
+                )
+                .put(
+                    "streamSettings",
+                    JSONObject().put("sockopt", JSONObject().put("tcpNoDelay", true))
+                )
+            proxy.getJSONObject("streamSettings")
+                .put("sockopt", JSONObject().put("dialerProxy", "fragment-out"))
+            outbounds.put(1, fragmentOut)
+        }
+        // No dns-out — DNS goes straight out of the phone's own network
+        // (port-53 rule sends it to direct) while FakeDNS answers the apps.
+        root.put("outbounds", outbounds)
 
         // ---------------- routing ----------------
         val rules = JSONArray()
@@ -271,7 +299,9 @@ object XrayConfigBuilder {
                     val list = p.alpn.split(",").mapNotNull { it.trim().takeIf(String::isNotEmpty) }
                     if (list.isNotEmpty()) tls.put("alpn", JSONArray(list))
                 }
-                // Plain TLS client; no inline handshake fragmentation.
+                // TLS ClientHello fragmentation happens at the DIAL level through the
+                // "fragment-out" freedom dialer (when the profile requests it),
+                // so no inline tlsSettings fragment is needed here.
                 s.put("tlsSettings", tls)
             }
             "reality" -> {
