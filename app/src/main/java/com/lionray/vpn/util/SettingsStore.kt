@@ -103,6 +103,20 @@ object SettingsStore {
             .edit().putBoolean("voip_via_vpn", on).apply()
     }
 
+    /**
+     * true => IPv6 route + address are added and IPv6 flows through the
+     * tunnel (needs an IPv6-capable server). Default FALSE: all IPv6 is
+     * blocked, preventing v6 half-open connections from stalling apps.
+     */
+    fun ipv6Enabled(ctx: Context): Boolean =
+        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+            .getBoolean("ipv6_enabled", false)
+
+    fun setIpv6Enabled(ctx: Context, on: Boolean) {
+        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+            .edit().putBoolean("ipv6_enabled", on).apply()
+    }
+
     fun language(ctx: Context): String =
         ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
             .getString("app_lang", LANG_EN) ?: LANG_EN

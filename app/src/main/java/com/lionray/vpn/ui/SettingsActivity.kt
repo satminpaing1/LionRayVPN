@@ -64,6 +64,7 @@ class SettingsActivity : AppCompatActivity() {
         setupAutoReconnect()
         setupAutoFailover()
         setupVoipVpn()
+        setupIpv6()
         setupBypassDomains()
         setupAppRules()
         setupBattery()
@@ -332,6 +333,15 @@ class SettingsActivity : AppCompatActivity() {
         sw.isChecked = SettingsStore.voipViaVpn(this)
         sw.setOnCheckedChangeListener { _, checked ->
             SettingsStore.setVoipViaVpn(this, checked)
+            toast(R.string.applies_next_connect)
+        }
+    }
+
+    private fun setupIpv6() {
+        val sw = findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.swIpv6)
+        sw.isChecked = SettingsStore.ipv6Enabled(this)
+        sw.setOnCheckedChangeListener { _, checked ->
+            SettingsStore.setIpv6Enabled(this, checked)
             toast(R.string.applies_next_connect)
         }
     }

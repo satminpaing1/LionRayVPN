@@ -244,4 +244,6 @@
 
     <string name="voip_vpn">UDP Media Through Tunnel</string>
     <string name="voip_vpn_sub">ON = call audio/video rides the tunnel (needs a UDP-capable VPS key, best calls). OFF = Worker-only links, apps use TCP fallback (safe for edgetunnel)</string>
+    <string name="ipv6_enabled">IPv6 Through Tunnel</string>
+    <string name="ipv6_enabled_sub">OFF (default) = all IPv6 blocked, no leak. ON = IPv6 route added and sent via the tunnel (pair with an IPv6-capable server)</string>
 </resources>

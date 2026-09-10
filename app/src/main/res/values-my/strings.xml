@@ -234,4 +234,6 @@
 
     <string name="voip_vpn">UDP Media ကို Tunnel ဖြင့် သွားရန်</string>
     <string name="voip_vpn_sub">ON = call audio/video က tunnel ထဲမှ သွားသည် (UDP ရနိုင်တဲ့ VPS key နဲ့ဆို call အကောင်းဆုံး). OFF = Worker link အတွက် TCP fallback (edgetunnel မှာ အန္တရာယ်ကင်း)</string>
+    <string name="ipv6_enabled">IPv6 ကို Tunnel ဖြင့် သွားရန်</string>
+    <string name="ipv6_enabled_sub">OFF (default) = IPv6 အားလုံး ပိတ်ထားသည် (leak မဖြစ်). ON = IPv6 route/address ထည့်ပြီး tunnel ကနေ ပို့သည် (IPv6 ရတဲ့ server နဲ့ တွဲသုံးပါ)</string>
 </resources>

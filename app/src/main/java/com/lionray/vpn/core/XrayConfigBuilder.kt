@@ -33,7 +33,8 @@ object XrayConfigBuilder {
         routingMode: String = SettingsStore.MODE_GLOBAL,
         dns: SettingsStore.Dns = SettingsStore.dnsPresets().first(),
         logFileDir: String? = null,
-        udpViaTunnel: Boolean = false
+        udpViaTunnel: Boolean = false,
+        ipv6Enabled: Boolean = false
     ): String {
         val root = JSONObject()
         val log = JSONObject().put("loglevel", "warning")
@@ -223,13 +224,16 @@ object XrayConfigBuilder {
         // ---------------- routing ----------------
         val rules = JSONArray()
 
-        // All IPv6 is dropped — forces everything onto IPv4 and prevents
-        // half-open v6 connections from stalling apps (v2box reference config).
-        rules.put(
-            JSONObject().put("type", "field")
-                .put("ip", JSONArray(listOf("::/0")))
-                .put("outboundTag", "block")
-        )
+        // IPv6: OFF (default) drops all IPv6 from the tunnel to prevent
+        // half-open v6 connections from stalling apps; ON lets IPv6 ride the
+        // tunnel (pair with the VPN client-side route for IPv6-capable servers).
+        if (!ipv6Enabled) {
+            rules.put(
+                JSONObject().put("type", "field")
+                    .put("ip", JSONArray(listOf("::/0")))
+                    .put("outboundTag", "block")
+            )
+        }
         // App DNS goes straight out the phone's own network (Xray is excluded
         // from the VPN); FakeDNS answers the apps locally.
         rules.put(

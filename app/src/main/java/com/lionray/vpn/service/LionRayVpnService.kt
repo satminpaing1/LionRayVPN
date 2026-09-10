@@ -382,7 +382,8 @@ class LionRayVpnService : VpnService() {
                 mode,
                 dns,
                 getExternalFilesDir(null)?.absolutePath,
-                SettingsStore.voipViaVpn(applicationContext)
+                SettingsStore.voipViaVpn(applicationContext),
+                SettingsStore.ipv6Enabled(applicationContext)
             )
         }
         // Keep a copy for debugging (Android/data/com.lionray.vpn/files/)
@@ -466,11 +467,16 @@ class LionRayVpnService : VpnService() {
      */
     private fun establishVpn(): ParcelFileDescriptor? {
         val dns = SettingsStore.currentDns(this)
+        val ipv6 = SettingsStore.ipv6Enabled(this)
         val builder = Builder()
             .setSession("LionRay VPN")
             .setMtu(VPN_MTU)
             .addAddress("26.26.26.1", 24)
             .addRoute("0.0.0.0", 0)
+        if (ipv6) {
+            builder.addAddress("fd00:1", 64)
+            builder.addRoute("::", 0)
+        }
         for (s in dns.servers) builder.addDnsServer(s)
         try {
             builder.addDisallowedApplication(packageName)
@@ -483,10 +489,10 @@ class LionRayVpnService : VpnService() {
             } catch (_: Exception) {
             }
         }
-        // Blocking mode: anything NOT routed into the VPN (IPv6, which has no
-        // ::/0 route) is DROPPED instead of bypassing through the phone's own
-        // connection. This is what keeps the tunnel IPv4-only — with blocking
-        // off, IPv6 parts of apps would ride the physical network and leak out.
+        // Blocking mode: anything NOT routed into the VPN is DROPPED instead
+        // of bypassing through the phone's own connection. With IPv6 OFF there
+        // is no ::/0 route, so v6 traffic (and everything else un-routed) is
+        // cut at the tun — no v6 leak out on the physical network.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             builder.setBlocking(true)
         }
