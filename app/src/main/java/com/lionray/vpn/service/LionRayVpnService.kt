@@ -384,7 +384,11 @@ class LionRayVpnService : VpnService() {
                 dns,
                 filesDir.absolutePath,
                 SettingsStore.voipViaVpn(applicationContext),
-                SettingsStore.ipv6Enabled(applicationContext)
+                SettingsStore.ipv6Enabled(applicationContext),
+                SettingsStore.fragmentEnabled(applicationContext),
+                SettingsStore.fragmentLength(applicationContext),
+                SettingsStore.fragmentInterval(applicationContext),
+                SettingsStore.muxEnabled(applicationContext)
             )
         }
         lastConfig = config

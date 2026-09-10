@@ -34,7 +34,11 @@ object XrayConfigBuilder {
         dns: SettingsStore.Dns = SettingsStore.dnsPresets().first(),
         logFileDir: String? = null,
         udpViaTunnel: Boolean = false,
-        ipv6Enabled: Boolean = false
+        ipv6Enabled: Boolean = false,
+        fragmentEnabled: Boolean = true,
+        fragmentLength: String = "",
+        fragmentInterval: String = "",
+        mux: Boolean = false
     ): String {
         val root = JSONObject()
         val log = JSONObject().put("loglevel", "warning")
@@ -175,16 +179,23 @@ object XrayConfigBuilder {
                     .put("streamSettings", streamSettings(p))
             }
         }
-        val useMux = p.muxEnabled
-        if (useMux) {
-            proxy.put("mux", JSONObject().put("enabled", true).put("concurrency", -1))
+        // Mux (stream reuse): ON from Settings reuses one tunnel across many
+        // connections (no per-connection TLS handshake = much faster). Only
+        // servers that understand mux framing can decode it, so it stays OFF
+        // unless the user (or their URI's mux= param) asks for it.
+        if (mux || p.muxEnabled) {
+            proxy.put("mux", JSONObject().put("enabled", true).put("concurrency", 8))
         }
 
-        // TLS ClientHello fragmentation (profile fragment=1,40-60,30-50,tlshello):
-        // the proxy dials through a dedicated freedom outbound that splits the
+        // TLS ClientHello fragmentation (e.g. fragment=1,40-60,30-50,tlshello).
+        // The proxy dials through a dedicated freedom outbound that splits the
         // TLS hello into small chunks so DPI can't fingerprint/block the ws
         // handshake — needed to keep China links alive past the GFW.
-        val useFragment = p.fragmentPackets.isNotBlank() || p.fragmentLength.isNotBlank()
+        // Settings override: the ON/OFF switch plus custom length/interval;
+        // blank values fall back to the URI's own fragment=... parameters.
+        val fragLength = fragmentLength.ifBlank { p.fragmentLength }
+        val fragInterval = fragmentInterval.ifBlank { p.fragmentInterval }
+        val useFragment = fragmentEnabled && fragLength.isNotBlank() && fragInterval.isNotBlank()
 
         val direct = JSONObject()
             .put("tag", "direct")
@@ -205,8 +216,8 @@ object XrayConfigBuilder {
                         "fragment",
                         JSONObject()
                             .put("packets", p.fragmentPackets.ifBlank { "tlshello" })
-                            .put("length", p.fragmentLength.ifBlank { "40-60" })
-                            .put("interval", p.fragmentInterval.ifBlank { "30-50" })
+                            .put("length", fragLength)
+                            .put("interval", fragInterval)
                     )
                 )
                 .put(

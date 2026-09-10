@@ -117,6 +117,52 @@ object SettingsStore {
             .edit().putBoolean("ipv6_enabled", on).apply()
     }
 
+    /**
+     * TLS-fragment tuning. fragmentEnabled=false disables TLS fragmentation
+     * even when the URI carries fragment=...; the length/interval strings are
+     * user overrides — blank means "follow the URI's own values".
+     */
+    fun fragmentEnabled(ctx: Context): Boolean =
+        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+            .getBoolean("fragment_enabled", true)
+
+    fun setFragmentEnabled(ctx: Context, on: Boolean) {
+        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+            .edit().putBoolean("fragment_enabled", on).apply()
+    }
+
+    fun fragmentLength(ctx: Context): String =
+        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+            .getString("fragment_length", "") ?: ""
+
+    fun setFragmentLength(ctx: Context, v: String) {
+        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+            .edit().putString("fragment_length", v).apply()
+    }
+
+    fun fragmentInterval(ctx: Context): String =
+        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+            .getString("fragment_interval", "") ?: ""
+
+    fun setFragmentInterval(ctx: Context, v: String) {
+        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+            .edit().putString("fragment_interval", v).apply()
+    }
+
+    /**
+     * Mux (stream reuse): one tunnel reused across connections = much faster
+     * on many links. Default FALSE — Worker-only relays usually can't decode
+     * mux framing, so it would stall them. Flip ON for real-VPS keys.
+     */
+    fun muxEnabled(ctx: Context): Boolean =
+        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+            .getBoolean("mux_enabled", false)
+
+    fun setMuxEnabled(ctx: Context, on: Boolean) {
+        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+            .edit().putBoolean("mux_enabled", on).apply()
+    }
+
     fun language(ctx: Context): String =
         ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
             .getString("app_lang", LANG_EN) ?: LANG_EN

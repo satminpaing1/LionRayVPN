@@ -65,6 +65,8 @@ class SettingsActivity : AppCompatActivity() {
         setupAutoFailover()
         setupVoipVpn()
         setupIpv6()
+        setupFragment()
+        setupMux()
         setupBypassDomains()
         setupAppRules()
         setupBattery()
@@ -342,6 +344,42 @@ class SettingsActivity : AppCompatActivity() {
         sw.isChecked = SettingsStore.ipv6Enabled(this)
         sw.setOnCheckedChangeListener { _, checked ->
             SettingsStore.setIpv6Enabled(this, checked)
+            toast(R.string.applies_next_connect)
+        }
+    }
+
+    private fun setupFragment() {
+        val sw = findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.swFragment)
+        val etLength = findViewById<android.widget.EditText>(R.id.etFragmentLength)
+        val etInterval = findViewById<android.widget.EditText>(R.id.etFragmentInterval)
+        sw.isChecked = SettingsStore.fragmentEnabled(this)
+        etLength.setText(SettingsStore.fragmentLength(this))
+        etInterval.setText(SettingsStore.fragmentInterval(this))
+        sw.setOnCheckedChangeListener { _, checked ->
+            SettingsStore.setFragmentEnabled(this, checked)
+            toast(R.string.applies_next_connect)
+        }
+        etLength.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                SettingsStore.setFragmentLength(this@SettingsActivity, s?.toString()?.trim().orEmpty())
+            }
+        })
+        etInterval.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                SettingsStore.setFragmentInterval(this@SettingsActivity, s?.toString()?.trim().orEmpty())
+            }
+        })
+    }
+
+    private fun setupMux() {
+        val sw = findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.swMux)
+        sw.isChecked = SettingsStore.muxEnabled(this)
+        sw.setOnCheckedChangeListener { _, checked ->
+            SettingsStore.setMuxEnabled(this, checked)
             toast(R.string.applies_next_connect)
         }
     }

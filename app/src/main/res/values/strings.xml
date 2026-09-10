@@ -246,4 +246,10 @@
     <string name="voip_vpn_sub">ON = call audio/video rides the tunnel (needs a UDP-capable VPS key, best calls). OFF = Worker-only links, apps use TCP fallback (safe for edgetunnel)</string>
     <string name="ipv6_enabled">IPv6 Through Tunnel</string>
     <string name="ipv6_enabled_sub">OFF (default) = all IPv6 blocked, no leak. ON = IPv6 route added and sent via the tunnel (pair with an IPv6-capable server)</string>
+    <string name="fragment_title">TLS Fragment</string>
+    <string name="fragment_tune_sub">ON = split the TLS ClientHello to dodge GFW DPI. Length/Interval blank = use your URI values</string>
+    <string name="fragment_length_hint">Length (blank = from URI, e.g. 40-60)</string>
+    <string name="fragment_interval_hint">Interval ms (blank = from URI, e.g. 30-50)</string>
+    <string name="mux_title">Mux (stream reuse)</string>
+    <string name="mux_sub">Reuse one tunnel for many streams (faster, but needs a mux-capable server - OFF for most Worker keys)</string>
 </resources>
