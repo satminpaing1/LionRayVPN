@@ -474,8 +474,14 @@ class LionRayVpnService : VpnService() {
             .addAddress("26.26.26.1", 24)
             .addRoute("0.0.0.0", 0)
         if (ipv6) {
-            builder.addAddress("fd00:1", 64)
-            builder.addRoute("::", 0)
+            // Some ROMs reject IPv6 tun addresses/routes — never let that take
+            // the whole app down; fall back to IPv4-only tunnel.
+            try {
+                builder.addAddress("fd00::1", 64)
+                builder.addRoute("::", 0)
+            } catch (e: Exception) {
+                Log.w(TAG, "IPv6 tun unavailable, using IPv4 only", e)
+            }
         }
         for (s in dns.servers) builder.addDnsServer(s)
         try {
