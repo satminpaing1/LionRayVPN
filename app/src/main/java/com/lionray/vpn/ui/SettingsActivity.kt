@@ -63,6 +63,7 @@ class SettingsActivity : AppCompatActivity() {
         setupAutoPing()
         setupAutoReconnect()
         setupAutoFailover()
+        setupVoipVpn()
         setupBypassDomains()
         setupAppRules()
         setupBattery()
@@ -321,6 +322,17 @@ class SettingsActivity : AppCompatActivity() {
         sw.isChecked = SettingsStore.autoFailover(this)
         sw.setOnCheckedChangeListener { _, checked ->
             SettingsStore.setAutoFailover(this, checked)
+        }
+    }
+
+    private fun setupVoipVpn() {
+        val sw = findViewById<androidx.appcompat.widget.SwitchCompat>(
+            R.id.swVoipVpn
+        )
+        sw.isChecked = SettingsStore.voipViaVpn(this)
+        sw.setOnCheckedChangeListener { _, checked ->
+            SettingsStore.setVoipViaVpn(this, checked)
+            toast(R.string.applies_next_connect)
         }
     }
 

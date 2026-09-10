@@ -89,13 +89,14 @@ object SettingsStore {
             .map { "domain:$it" }
 
     /**
-     * true => VoIP call media is tunneled via XUDP. DEFAULT TRUE because in
-     * censored networks (MM/CN) ISPs drop direct UDP to Meta media servers
-     * after a few seconds — the classic "call connects then endless spinner".
+     * true => UDP (Viber/Messenger call audio-video) is routed through the
+     * tunnel. Default FALSE: Worker-only (edgetunnel) links cannot relay UDP,
+     * so apps must fall back to TCP; enabling this on a UDP-capable (real VPS)
+     * key makes calls smooth. Flip it per the key you're using.
      */
     fun voipViaVpn(ctx: Context): Boolean =
         ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
-            .getBoolean("voip_via_vpn", true)
+            .getBoolean("voip_via_vpn", false)
 
     fun setVoipViaVpn(ctx: Context, on: Boolean) {
         ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)

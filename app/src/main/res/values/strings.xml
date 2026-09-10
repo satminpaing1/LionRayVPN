@@ -242,6 +242,6 @@
     <string name="bypass_hint">example.com\nnetflix.com\nbank.com.mm</string>
     <string name="bypass_saved_count">%1$d domains saved</string>
 
-    <string name="voip_vpn">VoIP Calls Through VPN</string>
-    <string name="voip_vpn_sub">Keep ON — routes call audio/video through the encrypted tunnel so calls survive ISP blocking/throttling (Messenger / Viber / Telegram)</string>
+    <string name="voip_vpn">UDP Media Through Tunnel</string>
+    <string name="voip_vpn_sub">ON = call audio/video rides the tunnel (needs a UDP-capable VPS key, best calls). OFF = Worker-only links, apps use TCP fallback (safe for edgetunnel)</string>
 </resources>

@@ -232,6 +232,6 @@
     <string name="bypass_hint">example.com\nnetflix.com\nbank.com.mm</string>
     <string name="bypass_saved_count">domain %1$d ခု သိမ်းပြီး</string>
 
-    <string name="voip_vpn">VoIP ခေါ်ဆိုမှုများကို VPN ဖြင့် သွားရန်</string>
-    <string name="voip_vpn_sub">ဖွင့်ထားပါ — call audio/video ကို encrypted tunnel အတွင်းမှ ပို့ပြီး ISP block/throttle ခံရတာ ကာကွယ်သည် (Messenger / Viber / Telegram)</string>
+    <string name="voip_vpn">UDP Media ကို Tunnel ဖြင့် သွားရန်</string>
+    <string name="voip_vpn_sub">ON = call audio/video က tunnel ထဲမှ သွားသည် (UDP ရနိုင်တဲ့ VPS key နဲ့ဆို call အကောင်းဆုံး). OFF = Worker link အတွက် TCP fallback (edgetunnel မှာ အန္တရာယ်ကင်း)</string>
 </resources>

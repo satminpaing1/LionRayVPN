@@ -32,7 +32,8 @@ object XrayConfigBuilder {
         socksPort: Int = XrayBridge.SOCKS_PORT,
         routingMode: String = SettingsStore.MODE_GLOBAL,
         dns: SettingsStore.Dns = SettingsStore.dnsPresets().first(),
-        logFileDir: String? = null
+        logFileDir: String? = null,
+        udpViaTunnel: Boolean = false
     ): String {
         val root = JSONObject()
         val log = JSONObject().put("loglevel", "warning")
@@ -243,13 +244,13 @@ object XrayConfigBuilder {
                 .put("outboundTag", "direct")
                 .put("ip", JSONArray(listOf("geoip:private")))
         )
-        // All other UDP is dropped — forces everything onto TCP so the
-        // WebSocket tunnel (TCP-only) can carry it; prevents UDP-to-ws from
-        // hanging forever.
+        // Non-DNS UDP: with a UDP-capable key (real VPS) it rides the tunnel so
+        // Viber/Messenger call media is smooth; with a Worker-only key it is
+        // dropped so apps fall back to TCP instead of hanging on un-relayed UDP.
         rules.put(
             JSONObject().put("type", "field")
                 .put("network", "udp")
-                .put("outboundTag", "block")
+                .put("outboundTag", if (udpViaTunnel) "proxy" else "block")
         )
         // Everything else (TCP) routes through the tunnel.
         rules.put(

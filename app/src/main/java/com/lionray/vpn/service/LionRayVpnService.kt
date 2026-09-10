@@ -381,7 +381,8 @@ class LionRayVpnService : VpnService() {
                 XrayBridge.SOCKS_PORT,
                 mode,
                 dns,
-                getExternalFilesDir(null)?.absolutePath
+                getExternalFilesDir(null)?.absolutePath,
+                SettingsStore.voipViaVpn(applicationContext)
             )
         }
         // Keep a copy for debugging (Android/data/com.lionray.vpn/files/)
