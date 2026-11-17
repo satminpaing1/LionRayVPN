@@ -166,7 +166,8 @@ apksigner sign --ks release.keystore --ks-key-alias lionray \
 Automated builds via `.github/workflows/build.yml`:
 1. Go to Actions → "Build & Release APK"
 2. Click "Run workflow"
-3. Enter `xray_version` (e.g., `26.3.27`) and `app_version` (e.g., `1.1`)
+3. Enter `xray_version` (must be the AndroidLibXrayLite release tag, with the
+   leading `v`, e.g., `v26.11.9`) and `app_version` (e.g., `2.35`)
 4. Workflow downloads Xray-core, builds APK, signs, and creates GitHub release
 
 ---
